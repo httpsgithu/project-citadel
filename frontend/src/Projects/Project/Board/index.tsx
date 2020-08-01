@@ -8,7 +8,6 @@ import { Bolt, ToggleOn, Tags, CheckCircle, Sort, Filter } from 'shared/icons';
 import { usePopup, Popup } from 'shared/components/PopupMenu';
 import { useParams, Route, useRouteMatch, useHistory, RouteComponentProps, useLocation } from 'react-router-dom';
 import {
-  useSetProjectOwnerMutation,
   useUpdateProjectMemberRoleMutation,
   useCreateProjectMemberMutation,
   useDeleteProjectMemberMutation,
@@ -44,7 +43,7 @@ import SimpleLists from 'shared/components/Lists';
 import produce from 'immer';
 import MiniProfile from 'shared/components/MiniProfile';
 import DueDateManager from 'shared/components/DueDateManager';
-import UserIDContext from 'App/context';
+import UserContext from 'App/context';
 import LabelManager from 'shared/components/PopupMenu/LabelManager';
 import LabelEditor from 'shared/components/PopupMenu/LabelEditor';
 import EmptyBoard from 'shared/components/EmptyBoard';
@@ -106,16 +105,48 @@ const initialQuickCardEditorState: QuickCardEditorState = {
 type ProjectBoardProps = {
   onCardLabelClick?: () => void;
   cardLabelVariant?: CardLabelVariant;
-  projectID?: string;
-  loading?: boolean;
+  projectID: string;
 };
 
-const ProjectBoard: React.FC<ProjectBoardProps> = ({
-  projectID,
-  onCardLabelClick,
-  cardLabelVariant,
-  loading: isLoading = false,
-}) => {
+export const BoardLoading = () => {
+  return (
+    <>
+      <ProjectBar>
+        <ProjectActions>
+          <ProjectAction disabled>
+            <CheckCircle width={13} height={13} />
+            <ProjectActionText>All Tasks</ProjectActionText>
+          </ProjectAction>
+          <ProjectAction disabled>
+            <Filter width={13} height={13} />
+            <ProjectActionText>Filter</ProjectActionText>
+          </ProjectAction>
+          <ProjectAction disabled>
+            <Sort width={13} height={13} />
+            <ProjectActionText>Sort</ProjectActionText>
+          </ProjectAction>
+        </ProjectActions>
+        <ProjectActions>
+          <ProjectAction>
+            <Tags width={13} height={13} />
+            <ProjectActionText>Labels</ProjectActionText>
+          </ProjectAction>
+          <ProjectAction disabled>
+            <ToggleOn width={13} height={13} />
+            <ProjectActionText>Fields</ProjectActionText>
+          </ProjectAction>
+          <ProjectAction disabled>
+            <Bolt width={13} height={13} />
+            <ProjectActionText>Rules</ProjectActionText>
+          </ProjectAction>
+        </ProjectActions>
+      </ProjectBar>
+      <EmptyBoard />
+    </>
+  );
+};
+
+const ProjectBoard: React.FC<ProjectBoardProps> = ({ projectID, onCardLabelClick, cardLabelVariant }) => {
   const [assignTask] = useAssignTaskMutation();
   const [unassignTask] = useUnassignTaskMutation();
   const $labelsRef = useRef<HTMLDivElement>(null);
@@ -124,7 +155,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({
   const { showPopup, hidePopup } = usePopup();
   const taskLabelsRef = useRef<Array<TaskLabel>>([]);
   const [quickCardEditor, setQuickCardEditor] = useState(initialQuickCardEditorState);
-  const { userID } = useContext(UserIDContext);
+  const { user } = useContext(UserContext);
   const [updateTaskGroupLocation] = useUpdateTaskGroupLocationMutation({});
   const history = useHistory();
   const [deleteTaskGroup] = useDeleteTaskGroupMutation({
@@ -177,7 +208,7 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({
 
   const [updateTaskGroupName] = useUpdateTaskGroupNameMutation({});
   const { loading, data } = useFindProjectQuery({
-    variables: { projectId: projectID ?? '' },
+    variables: { projectId: projectID },
   });
 
   const [updateTaskDueDate] = useUpdateTaskDueDateMutation();
@@ -273,42 +304,8 @@ const ProjectBoard: React.FC<ProjectBoardProps> = ({
     }
   };
 
-  if (loading || isLoading) {
-    return (
-      <>
-        <ProjectBar>
-          <ProjectActions>
-            <ProjectAction disabled>
-              <CheckCircle width={13} height={13} />
-              <ProjectActionText>All Tasks</ProjectActionText>
-            </ProjectAction>
-            <ProjectAction disabled>
-              <Filter width={13} height={13} />
-              <ProjectActionText>Filter</ProjectActionText>
-            </ProjectAction>
-            <ProjectAction disabled>
-              <Sort width={13} height={13} />
-              <ProjectActionText>Sort</ProjectActionText>
-            </ProjectAction>
-          </ProjectActions>
-          <ProjectActions>
-            <ProjectAction>
-              <Tags width={13} height={13} />
-              <ProjectActionText>Labels</ProjectActionText>
-            </ProjectAction>
-            <ProjectAction disabled>
-              <ToggleOn width={13} height={13} />
-              <ProjectActionText>Fields</ProjectActionText>
-            </ProjectAction>
-            <ProjectAction disabled>
-              <Bolt width={13} height={13} />
-              <ProjectActionText>Rules</ProjectActionText>
-            </ProjectAction>
-          </ProjectActions>
-        </ProjectBar>
-        <EmptyBoard />
-      </>
-    );
+  if (loading) {
+    return <BoardLoading />;
   }
   if (data) {
     labelsRef.current = data.findProject.labels;

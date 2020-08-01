@@ -9,8 +9,7 @@ import NormalizeStyles from './NormalizeStyles';
 import BaseStyles from './BaseStyles';
 import { theme } from './ThemeStyles';
 import Routes from './Routes';
-import { UserIDContext } from './context';
-import Navbar from './Navbar';
+import { UserContext, UserData } from './context';
 
 const history = createBrowserHistory();
 type RefreshTokenResponse = {
@@ -20,7 +19,7 @@ type RefreshTokenResponse = {
 
 const App = () => {
   const [loading, setLoading] = useState(true);
-  const [userID, setUserID] = useState<string | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
 
   useEffect(() => {
     fetch('/auth/refresh_token', {
@@ -34,7 +33,7 @@ const App = () => {
         const response: RefreshTokenResponse = await x.json();
         const { accessToken, isInstalled } = response;
         const claims: JWTToken = jwtDecode(accessToken);
-        setUserID(claims.userId);
+        setUser({ id: claims.userId, orgRole: claims.orgRole });
         setAccessToken(accessToken);
         if (!isInstalled) {
           history.replace('/install');
@@ -46,7 +45,7 @@ const App = () => {
 
   return (
     <>
-      <UserIDContext.Provider value={{ userID, setUserID }}>
+      <UserContext.Provider value={{ user, setUser }}>
         <ThemeProvider theme={theme}>
           <NormalizeStyles />
           <BaseStyles />
@@ -62,7 +61,7 @@ const App = () => {
             </PopupProvider>
           </Router>
         </ThemeProvider>
-      </UserIDContext.Provider>
+      </UserContext.Provider>
     </>
   );
 };

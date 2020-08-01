@@ -6,13 +6,13 @@ import { setAccessToken } from 'shared/utils/accessToken';
 
 import Login from 'shared/components/Login';
 import { Container, LoginWrapper } from './Styles';
-import UserIDContext from 'App/context';
+import UserContext from 'App/context';
 import JwtDecode from 'jwt-decode';
 
 const Auth = () => {
   const [invalidLoginAttempt, setInvalidLoginAttempt] = useState(0);
   const history = useHistory();
-  const { setUserID } = useContext(UserIDContext);
+  const { setUser } = useContext(UserContext);
   const login = (
     data: LoginFormData,
     setComplete: (val: boolean) => void,
@@ -35,7 +35,7 @@ const Auth = () => {
         const response = await x.json();
         const { accessToken } = response;
         const claims: JWTToken = JwtDecode(accessToken);
-        setUserID(claims.userId);
+        setUser({ id: claims.userId, orgRole: claims.orgRole });
         setComplete(true);
         setAccessToken(accessToken);
 

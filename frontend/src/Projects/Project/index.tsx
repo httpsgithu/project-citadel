@@ -15,7 +15,6 @@ import {
   Redirect,
 } from 'react-router-dom';
 import {
-  useSetProjectOwnerMutation,
   useUpdateProjectMemberRoleMutation,
   useCreateProjectMemberMutation,
   useDeleteProjectMemberMutation,
@@ -34,10 +33,10 @@ import {
 } from 'shared/generated/graphql';
 
 import produce from 'immer';
-import UserIDContext from 'App/context';
+import UserContext from 'App/context';
 import Input from 'shared/components/Input';
 import Member from 'shared/components/Member';
-import Board from './Board';
+import Board, { BoardLoading } from './Board';
 import Details from './Details';
 import EmptyBoard from 'shared/components/EmptyBoard';
 
@@ -170,7 +169,6 @@ const Project = () => {
       );
     },
   });
-  const [setProjectOwner] = useSetProjectOwnerMutation();
   const [deleteProjectMember] = useDeleteProjectMemberMutation({
     update: (client, response) => {
       updateApolloCache<FindProjectQuery>(
@@ -189,7 +187,7 @@ const Project = () => {
     },
   });
 
-  const { userID } = useContext(UserIDContext);
+  const { user } = useContext(UserContext);
   const location = useLocation();
 
   const { showPopup, hidePopup } = usePopup();
@@ -205,7 +203,7 @@ const Project = () => {
     return (
       <>
         <GlobalTopNavbar onSaveProjectName={projectName => {}} name="" projectID={null} />
-        <Board loading />
+        <BoardLoading />
       </>
     );
   }
@@ -221,7 +219,6 @@ const Project = () => {
             updateProjectMemberRole({ variables: { userID, roleCode, projectID } });
           }}
           onChangeProjectOwner={uid => {
-            setProjectOwner({ variables: { ownerID: uid, projectID } });
             hidePopup();
           }}
           onRemoveFromBoard={userID => {

@@ -1,9 +1,16 @@
 import React from 'react';
 
-type UserIDContextState = {
-  userID: string | null;
-  setUserID: (userID: string | null) => void;
+export type UserData = {
+  id: string;
+  orgRole: string;
+  teamRoles?: Map<string, string> | null;
+  projectRoles?: Map<string, string> | null;
 };
-export const UserIDContext = React.createContext<UserIDContextState>({ userID: null, setUserID: _userID => null });
 
-export default UserIDContext;
+type UserContextState = {
+  user: UserData | null;
+  setUser: (user: UserData | null) => void;
+};
+export const UserContext = React.createContext<UserContextState>({ user: null, setUser: _user => null });
+
+export default UserContext;

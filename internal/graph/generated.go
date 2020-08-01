@@ -127,6 +127,12 @@ type ComplexityRoot struct {
 		Position func(childComplexity int) int
 	}
 
+	MePayload struct {
+		ProjectRoles func(childComplexity int) int
+		TeamRoles    func(childComplexity int) int
+		User         func(childComplexity int) int
+	}
+
 	Member struct {
 		FullName    func(childComplexity int) int
 		ID          func(childComplexity int) int
@@ -169,10 +175,8 @@ type ComplexityRoot struct {
 		DeleteUserAccount               func(childComplexity int, input DeleteUserAccount) int
 		LogoutUser                      func(childComplexity int, input LogoutUser) int
 		RemoveTaskLabel                 func(childComplexity int, input *RemoveTaskLabelInput) int
-		SetProjectOwner                 func(childComplexity int, input SetProjectOwner) int
 		SetTaskChecklistItemComplete    func(childComplexity int, input SetTaskChecklistItemComplete) int
 		SetTaskComplete                 func(childComplexity int, input SetTaskComplete) int
-		SetTeamOwner                    func(childComplexity int, input SetTeamOwner) int
 		ToggleTaskLabel                 func(childComplexity int, input ToggleTaskLabelInput) int
 		UnassignTask                    func(childComplexity int, input *UnassignTaskInput) int
 		UpdateProjectLabel              func(childComplexity int, input UpdateProjectLabel) int
@@ -222,7 +226,6 @@ type ComplexityRoot struct {
 		Labels     func(childComplexity int) int
 		Members    func(childComplexity int) int
 		Name       func(childComplexity int) int
-		Owner      func(childComplexity int) int
 		TaskGroups func(childComplexity int) int
 		Team       func(childComplexity int) int
 	}
@@ -232,6 +235,11 @@ type ComplexityRoot struct {
 		ID          func(childComplexity int) int
 		LabelColor  func(childComplexity int) int
 		Name        func(childComplexity int) int
+	}
+
+	ProjectRole struct {
+		ProjectID func(childComplexity int) int
+		RoleCode  func(childComplexity int) int
 	}
 
 	Query struct {
@@ -258,18 +266,6 @@ type ComplexityRoot struct {
 	Role struct {
 		Code func(childComplexity int) int
 		Name func(childComplexity int) int
-	}
-
-	SetProjectOwnerPayload struct {
-		NewOwner  func(childComplexity int) int
-		Ok        func(childComplexity int) int
-		PrevOwner func(childComplexity int) int
-	}
-
-	SetTeamOwnerPayload struct {
-		NewOwner  func(childComplexity int) int
-		Ok        func(childComplexity int) int
-		PrevOwner func(childComplexity int) int
 	}
 
 	Task struct {
@@ -329,6 +325,11 @@ type ComplexityRoot struct {
 		Name      func(childComplexity int) int
 	}
 
+	TeamRole struct {
+		RoleCode func(childComplexity int) int
+		TeamID   func(childComplexity int) int
+	}
+
 	ToggleTaskLabelPayload struct {
 		Active func(childComplexity int) int
 		Task   func(childComplexity int) int
@@ -357,6 +358,7 @@ type ComplexityRoot struct {
 	UpdateTeamMemberRolePayload struct {
 		Member func(childComplexity int) int
 		Ok     func(childComplexity int) int
+		TeamID func(childComplexity int) int
 	}
 
 	UpdateUserPasswordPayload struct {
@@ -397,7 +399,6 @@ type MutationResolver interface {
 	CreateProjectMember(ctx context.Context, input CreateProjectMember) (*CreateProjectMemberPayload, error)
 	DeleteProjectMember(ctx context.Context, input DeleteProjectMember) (*DeleteProjectMemberPayload, error)
 	UpdateProjectMemberRole(ctx context.Context, input UpdateProjectMemberRole) (*UpdateProjectMemberRolePayload, error)
-	SetProjectOwner(ctx context.Context, input SetProjectOwner) (*SetProjectOwnerPayload, error)
 	CreateTask(ctx context.Context, input NewTask) (*db.Task, error)
 	DeleteTask(ctx context.Context, input DeleteTaskInput) (*DeleteTaskPayload, error)
 	UpdateTaskDescription(ctx context.Context, input UpdateTaskDescriptionInput) (*db.Task, error)
@@ -425,7 +426,6 @@ type MutationResolver interface {
 	ToggleTaskLabel(ctx context.Context, input ToggleTaskLabelInput) (*ToggleTaskLabelPayload, error)
 	DeleteTeam(ctx context.Context, input DeleteTeam) (*DeleteTeamPayload, error)
 	CreateTeam(ctx context.Context, input NewTeam) (*db.Team, error)
-	SetTeamOwner(ctx context.Context, input SetTeamOwner) (*SetTeamOwnerPayload, error)
 	CreateTeamMember(ctx context.Context, input CreateTeamMember) (*CreateTeamMemberPayload, error)
 	UpdateTeamMemberRole(ctx context.Context, input UpdateTeamMemberRole) (*UpdateTeamMemberRolePayload, error)
 	DeleteTeamMember(ctx context.Context, input DeleteTeamMember) (*DeleteTeamMemberPayload, error)
@@ -444,7 +444,6 @@ type ProjectResolver interface {
 	ID(ctx context.Context, obj *db.Project) (uuid.UUID, error)
 
 	Team(ctx context.Context, obj *db.Project) (*db.Team, error)
-	Owner(ctx context.Context, obj *db.Project) (*Member, error)
 	TaskGroups(ctx context.Context, obj *db.Project) ([]db.TaskGroup, error)
 	Members(ctx context.Context, obj *db.Project) ([]Member, error)
 	Labels(ctx context.Context, obj *db.Project) ([]db.ProjectLabel, error)
@@ -466,7 +465,7 @@ type QueryResolver interface {
 	Teams(ctx context.Context) ([]db.Team, error)
 	LabelColors(ctx context.Context) ([]db.LabelColor, error)
 	TaskGroups(ctx context.Context) ([]db.TaskGroup, error)
-	Me(ctx context.Context) (*db.UserAccount, error)
+	Me(ctx context.Context) (*MePayload, error)
 }
 type RefreshTokenResolver interface {
 	ID(ctx context.Context, obj *db.RefreshToken) (uuid.UUID, error)
@@ -749,6 +748,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.LabelColor.Position(childComplexity), true
+
+	case "MePayload.projectRoles":
+		if e.complexity.MePayload.ProjectRoles == nil {
+			break
+		}
+
+		return e.complexity.MePayload.ProjectRoles(childComplexity), true
+
+	case "MePayload.teamRoles":
+		if e.complexity.MePayload.TeamRoles == nil {
+			break
+		}
+
+		return e.complexity.MePayload.TeamRoles(childComplexity), true
+
+	case "MePayload.user":
+		if e.complexity.MePayload.User == nil {
+			break
+		}
+
+		return e.complexity.MePayload.User(childComplexity), true
 
 	case "Member.fullName":
 		if e.complexity.Member.FullName == nil {
@@ -1120,18 +1140,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Mutation.RemoveTaskLabel(childComplexity, args["input"].(*RemoveTaskLabelInput)), true
 
-	case "Mutation.setProjectOwner":
-		if e.complexity.Mutation.SetProjectOwner == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_setProjectOwner_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.SetProjectOwner(childComplexity, args["input"].(SetProjectOwner)), true
-
 	case "Mutation.setTaskChecklistItemComplete":
 		if e.complexity.Mutation.SetTaskChecklistItemComplete == nil {
 			break
@@ -1155,18 +1163,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.SetTaskComplete(childComplexity, args["input"].(SetTaskComplete)), true
-
-	case "Mutation.setTeamOwner":
-		if e.complexity.Mutation.SetTeamOwner == nil {
-			break
-		}
-
-		args, err := ec.field_Mutation_setTeamOwner_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.SetTeamOwner(childComplexity, args["input"].(SetTeamOwner)), true
 
 	case "Mutation.toggleTaskLabel":
 		if e.complexity.Mutation.ToggleTaskLabel == nil {
@@ -1506,13 +1502,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Project.Name(childComplexity), true
 
-	case "Project.owner":
-		if e.complexity.Project.Owner == nil {
-			break
-		}
-
-		return e.complexity.Project.Owner(childComplexity), true
-
 	case "Project.taskGroups":
 		if e.complexity.Project.TaskGroups == nil {
 			break
@@ -1554,6 +1543,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.ProjectLabel.Name(childComplexity), true
+
+	case "ProjectRole.projectID":
+		if e.complexity.ProjectRole.ProjectID == nil {
+			break
+		}
+
+		return e.complexity.ProjectRole.ProjectID(childComplexity), true
+
+	case "ProjectRole.roleCode":
+		if e.complexity.ProjectRole.RoleCode == nil {
+			break
+		}
+
+		return e.complexity.ProjectRole.RoleCode(childComplexity), true
 
 	case "Query.findProject":
 		if e.complexity.Query.FindProject == nil {
@@ -1698,48 +1701,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Role.Name(childComplexity), true
-
-	case "SetProjectOwnerPayload.newOwner":
-		if e.complexity.SetProjectOwnerPayload.NewOwner == nil {
-			break
-		}
-
-		return e.complexity.SetProjectOwnerPayload.NewOwner(childComplexity), true
-
-	case "SetProjectOwnerPayload.ok":
-		if e.complexity.SetProjectOwnerPayload.Ok == nil {
-			break
-		}
-
-		return e.complexity.SetProjectOwnerPayload.Ok(childComplexity), true
-
-	case "SetProjectOwnerPayload.prevOwner":
-		if e.complexity.SetProjectOwnerPayload.PrevOwner == nil {
-			break
-		}
-
-		return e.complexity.SetProjectOwnerPayload.PrevOwner(childComplexity), true
-
-	case "SetTeamOwnerPayload.newOwner":
-		if e.complexity.SetTeamOwnerPayload.NewOwner == nil {
-			break
-		}
-
-		return e.complexity.SetTeamOwnerPayload.NewOwner(childComplexity), true
-
-	case "SetTeamOwnerPayload.ok":
-		if e.complexity.SetTeamOwnerPayload.Ok == nil {
-			break
-		}
-
-		return e.complexity.SetTeamOwnerPayload.Ok(childComplexity), true
-
-	case "SetTeamOwnerPayload.prevOwner":
-		if e.complexity.SetTeamOwnerPayload.PrevOwner == nil {
-			break
-		}
-
-		return e.complexity.SetTeamOwnerPayload.PrevOwner(childComplexity), true
 
 	case "Task.assigned":
 		if e.complexity.Task.Assigned == nil {
@@ -1993,6 +1954,20 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Team.Name(childComplexity), true
 
+	case "TeamRole.roleCode":
+		if e.complexity.TeamRole.RoleCode == nil {
+			break
+		}
+
+		return e.complexity.TeamRole.RoleCode(childComplexity), true
+
+	case "TeamRole.teamID":
+		if e.complexity.TeamRole.TeamID == nil {
+			break
+		}
+
+		return e.complexity.TeamRole.TeamID(childComplexity), true
+
 	case "ToggleTaskLabelPayload.active":
 		if e.complexity.ToggleTaskLabelPayload.Active == nil {
 			break
@@ -2076,6 +2051,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.UpdateTeamMemberRolePayload.Ok(childComplexity), true
+
+	case "UpdateTeamMemberRolePayload.teamID":
+		if e.complexity.UpdateTeamMemberRolePayload.TeamID == nil {
+			break
+		}
+
+		return e.complexity.UpdateTeamMemberRolePayload.TeamID(childComplexity), true
 
 	case "UpdateUserPasswordPayload.ok":
 		if e.complexity.UpdateUserPasswordPayload.Ok == nil {
@@ -2331,7 +2313,6 @@ type Project {
   createdAt: Time!
   name: String!
   team: Team!
-  owner: Member!
   taskGroups: [TaskGroup!]!
   members: [Member!]!
   labels: [ProjectLabel!]!
@@ -2402,10 +2383,26 @@ type Query {
   teams: [Team!]!
   labelColors: [LabelColor!]!
   taskGroups: [TaskGroup!]!
-  me: UserAccount!
+  me: MePayload!
 }
 
 type Mutation
+
+type TeamRole {
+  teamID: UUID!
+  roleCode: RoleCode!
+}
+
+type ProjectRole {
+  projectID: UUID!
+  roleCode: RoleCode!
+}
+
+type MePayload {
+  user: UserAccount!
+  teamRoles: [TeamRole!]!
+  projectRoles: [ProjectRole!]!
+}
 
 input ProjectsFilter {
   teamID: UUID
@@ -2492,7 +2489,6 @@ extend type Mutation {
   createProjectMember(input: CreateProjectMember!): CreateProjectMemberPayload!
   deleteProjectMember(input: DeleteProjectMember!): DeleteProjectMemberPayload!
   updateProjectMemberRole(input: UpdateProjectMemberRole!): UpdateProjectMemberRolePayload!
-  setProjectOwner(input: SetProjectOwner!): SetProjectOwnerPayload!
 }
 
 input CreateProjectMember {
@@ -2525,16 +2521,6 @@ input UpdateProjectMemberRole {
 type UpdateProjectMemberRolePayload {
   ok: Boolean!
   member: Member!
-}
-
-input SetProjectOwner {
-  projectID: UUID!
-  ownerID: UUID!
-}
-type SetProjectOwnerPayload {
-  ok: Boolean!
-  prevOwner: Member!
-  newOwner: Member!
 }
 
 extend type Mutation {
@@ -2760,7 +2746,6 @@ type DeleteTeamPayload {
 }
 
 extend type Mutation {
-  setTeamOwner(input: SetTeamOwner!): SetTeamOwnerPayload!
   createTeamMember(input: CreateTeamMember!): CreateTeamMemberPayload!
   updateTeamMemberRole(input: UpdateTeamMemberRole!): UpdateTeamMemberRolePayload!
   deleteTeamMember(input: DeleteTeamMember!): DeleteTeamMemberPayload!
@@ -2796,18 +2781,8 @@ input UpdateTeamMemberRole {
 
 type UpdateTeamMemberRolePayload {
   ok: Boolean!
-  member: Member!
-}
-
-input SetTeamOwner {
   teamID: UUID!
-  userID: UUID!
-}
-
-type SetTeamOwnerPayload {
-  ok: Boolean!
-  prevOwner: Member!
-  newOwner: Member!
+  member: Member!
 }
 
 extend type Mutation {
@@ -2880,7 +2855,7 @@ func (ec *executionContext) field_Mutation_addTaskLabel_args(ctx context.Context
 	args := map[string]interface{}{}
 	var arg0 *AddTaskLabelInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalOAddTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAddTaskLabelInput(ctx, tmp)
+		arg0, err = ec.unmarshalOAddTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAddTaskLabelInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2894,7 +2869,7 @@ func (ec *executionContext) field_Mutation_assignTask_args(ctx context.Context, 
 	args := map[string]interface{}{}
 	var arg0 *AssignTaskInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalOAssignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAssignTaskInput(ctx, tmp)
+		arg0, err = ec.unmarshalOAssignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAssignTaskInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2908,7 +2883,7 @@ func (ec *executionContext) field_Mutation_createProjectLabel_args(ctx context.C
 	args := map[string]interface{}{}
 	var arg0 NewProjectLabel
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewProjectLabel(ctx, tmp)
+		arg0, err = ec.unmarshalNNewProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewProjectLabel(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2922,7 +2897,7 @@ func (ec *executionContext) field_Mutation_createProjectMember_args(ctx context.
 	args := map[string]interface{}{}
 	var arg0 CreateProjectMember
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNCreateProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateProjectMember(ctx, tmp)
+		arg0, err = ec.unmarshalNCreateProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateProjectMember(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2936,7 +2911,7 @@ func (ec *executionContext) field_Mutation_createProject_args(ctx context.Contex
 	args := map[string]interface{}{}
 	var arg0 NewProject
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewProject(ctx, tmp)
+		arg0, err = ec.unmarshalNNewProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewProject(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2950,7 +2925,7 @@ func (ec *executionContext) field_Mutation_createRefreshToken_args(ctx context.C
 	args := map[string]interface{}{}
 	var arg0 NewRefreshToken
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewRefreshToken2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewRefreshToken(ctx, tmp)
+		arg0, err = ec.unmarshalNNewRefreshToken2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewRefreshToken(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2964,7 +2939,7 @@ func (ec *executionContext) field_Mutation_createTaskChecklistItem_args(ctx cont
 	args := map[string]interface{}{}
 	var arg0 CreateTaskChecklistItem
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNCreateTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTaskChecklistItem(ctx, tmp)
+		arg0, err = ec.unmarshalNCreateTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTaskChecklistItem(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2978,7 +2953,7 @@ func (ec *executionContext) field_Mutation_createTaskChecklist_args(ctx context.
 	args := map[string]interface{}{}
 	var arg0 CreateTaskChecklist
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNCreateTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTaskChecklist(ctx, tmp)
+		arg0, err = ec.unmarshalNCreateTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTaskChecklist(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2992,7 +2967,7 @@ func (ec *executionContext) field_Mutation_createTaskGroup_args(ctx context.Cont
 	args := map[string]interface{}{}
 	var arg0 NewTaskGroup
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTaskGroup(ctx, tmp)
+		arg0, err = ec.unmarshalNNewTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTaskGroup(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3006,7 +2981,7 @@ func (ec *executionContext) field_Mutation_createTask_args(ctx context.Context, 
 	args := map[string]interface{}{}
 	var arg0 NewTask
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTask(ctx, tmp)
+		arg0, err = ec.unmarshalNNewTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTask(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3020,7 +2995,7 @@ func (ec *executionContext) field_Mutation_createTeamMember_args(ctx context.Con
 	args := map[string]interface{}{}
 	var arg0 CreateTeamMember
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNCreateTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTeamMember(ctx, tmp)
+		arg0, err = ec.unmarshalNCreateTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTeamMember(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3034,7 +3009,7 @@ func (ec *executionContext) field_Mutation_createTeam_args(ctx context.Context, 
 	args := map[string]interface{}{}
 	var arg0 NewTeam
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTeam(ctx, tmp)
+		arg0, err = ec.unmarshalNNewTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTeam(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3048,7 +3023,7 @@ func (ec *executionContext) field_Mutation_createUserAccount_args(ctx context.Co
 	args := map[string]interface{}{}
 	var arg0 NewUserAccount
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewUserAccount(ctx, tmp)
+		arg0, err = ec.unmarshalNNewUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewUserAccount(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3062,7 +3037,7 @@ func (ec *executionContext) field_Mutation_deleteProjectLabel_args(ctx context.C
 	args := map[string]interface{}{}
 	var arg0 DeleteProjectLabel
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectLabel(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectLabel(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3076,7 +3051,7 @@ func (ec *executionContext) field_Mutation_deleteProjectMember_args(ctx context.
 	args := map[string]interface{}{}
 	var arg0 DeleteProjectMember
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectMember(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectMember(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3090,7 +3065,7 @@ func (ec *executionContext) field_Mutation_deleteProject_args(ctx context.Contex
 	args := map[string]interface{}{}
 	var arg0 DeleteProject
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProject(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProject(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3104,7 +3079,7 @@ func (ec *executionContext) field_Mutation_deleteTaskChecklistItem_args(ctx cont
 	args := map[string]interface{}{}
 	var arg0 DeleteTaskChecklistItem
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistItem(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistItem(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3118,7 +3093,7 @@ func (ec *executionContext) field_Mutation_deleteTaskChecklist_args(ctx context.
 	args := map[string]interface{}{}
 	var arg0 DeleteTaskChecklist
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklist(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklist(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3132,7 +3107,7 @@ func (ec *executionContext) field_Mutation_deleteTaskGroup_args(ctx context.Cont
 	args := map[string]interface{}{}
 	var arg0 DeleteTaskGroupInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteTaskGroupInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskGroupInput(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteTaskGroupInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskGroupInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3146,7 +3121,7 @@ func (ec *executionContext) field_Mutation_deleteTask_args(ctx context.Context, 
 	args := map[string]interface{}{}
 	var arg0 DeleteTaskInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskInput(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3160,7 +3135,7 @@ func (ec *executionContext) field_Mutation_deleteTeamMember_args(ctx context.Con
 	args := map[string]interface{}{}
 	var arg0 DeleteTeamMember
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamMember(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamMember(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3174,7 +3149,7 @@ func (ec *executionContext) field_Mutation_deleteTeam_args(ctx context.Context, 
 	args := map[string]interface{}{}
 	var arg0 DeleteTeam
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeam(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeam(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3188,7 +3163,7 @@ func (ec *executionContext) field_Mutation_deleteUserAccount_args(ctx context.Co
 	args := map[string]interface{}{}
 	var arg0 DeleteUserAccount
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNDeleteUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteUserAccount(ctx, tmp)
+		arg0, err = ec.unmarshalNDeleteUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteUserAccount(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3202,7 +3177,7 @@ func (ec *executionContext) field_Mutation_logoutUser_args(ctx context.Context, 
 	args := map[string]interface{}{}
 	var arg0 LogoutUser
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNLogoutUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐLogoutUser(ctx, tmp)
+		arg0, err = ec.unmarshalNLogoutUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐLogoutUser(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3216,21 +3191,7 @@ func (ec *executionContext) field_Mutation_removeTaskLabel_args(ctx context.Cont
 	args := map[string]interface{}{}
 	var arg0 *RemoveTaskLabelInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalORemoveTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_setProjectOwner_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 SetProjectOwner
-	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNSetProjectOwner2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetProjectOwner(ctx, tmp)
+		arg0, err = ec.unmarshalORemoveTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3244,7 +3205,7 @@ func (ec *executionContext) field_Mutation_setTaskChecklistItemComplete_args(ctx
 	args := map[string]interface{}{}
 	var arg0 SetTaskChecklistItemComplete
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNSetTaskChecklistItemComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTaskChecklistItemComplete(ctx, tmp)
+		arg0, err = ec.unmarshalNSetTaskChecklistItemComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐSetTaskChecklistItemComplete(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3258,21 +3219,7 @@ func (ec *executionContext) field_Mutation_setTaskComplete_args(ctx context.Cont
 	args := map[string]interface{}{}
 	var arg0 SetTaskComplete
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNSetTaskComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTaskComplete(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
-func (ec *executionContext) field_Mutation_setTeamOwner_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 SetTeamOwner
-	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNSetTeamOwner2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTeamOwner(ctx, tmp)
+		arg0, err = ec.unmarshalNSetTaskComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐSetTaskComplete(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3286,7 +3233,7 @@ func (ec *executionContext) field_Mutation_toggleTaskLabel_args(ctx context.Cont
 	args := map[string]interface{}{}
 	var arg0 ToggleTaskLabelInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNToggleTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐToggleTaskLabelInput(ctx, tmp)
+		arg0, err = ec.unmarshalNToggleTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐToggleTaskLabelInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3300,7 +3247,7 @@ func (ec *executionContext) field_Mutation_unassignTask_args(ctx context.Context
 	args := map[string]interface{}{}
 	var arg0 *UnassignTaskInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalOUnassignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUnassignTaskInput(ctx, tmp)
+		arg0, err = ec.unmarshalOUnassignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUnassignTaskInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3314,7 +3261,7 @@ func (ec *executionContext) field_Mutation_updateProjectLabelColor_args(ctx cont
 	args := map[string]interface{}{}
 	var arg0 UpdateProjectLabelColor
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateProjectLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectLabelColor(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateProjectLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectLabelColor(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3328,7 +3275,7 @@ func (ec *executionContext) field_Mutation_updateProjectLabelName_args(ctx conte
 	args := map[string]interface{}{}
 	var arg0 UpdateProjectLabelName
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateProjectLabelName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectLabelName(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateProjectLabelName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectLabelName(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3342,7 +3289,7 @@ func (ec *executionContext) field_Mutation_updateProjectLabel_args(ctx context.C
 	args := map[string]interface{}{}
 	var arg0 UpdateProjectLabel
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectLabel(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectLabel(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3356,7 +3303,7 @@ func (ec *executionContext) field_Mutation_updateProjectMemberRole_args(ctx cont
 	args := map[string]interface{}{}
 	var arg0 UpdateProjectMemberRole
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateProjectMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectMemberRole(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateProjectMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectMemberRole(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3370,7 +3317,7 @@ func (ec *executionContext) field_Mutation_updateProjectName_args(ctx context.Co
 	args := map[string]interface{}{}
 	var arg0 *UpdateProjectName
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalOUpdateProjectName2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectName(ctx, tmp)
+		arg0, err = ec.unmarshalOUpdateProjectName2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectName(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3384,7 +3331,7 @@ func (ec *executionContext) field_Mutation_updateTaskChecklistItemLocation_args(
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskChecklistItemLocation
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskChecklistItemLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocation(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskChecklistItemLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocation(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3398,7 +3345,7 @@ func (ec *executionContext) field_Mutation_updateTaskChecklistItemName_args(ctx 
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskChecklistItemName
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskChecklistItemName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistItemName(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskChecklistItemName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistItemName(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3412,7 +3359,7 @@ func (ec *executionContext) field_Mutation_updateTaskChecklistLocation_args(ctx 
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskChecklistLocation
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskChecklistLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistLocation(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskChecklistLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistLocation(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3426,7 +3373,7 @@ func (ec *executionContext) field_Mutation_updateTaskChecklistName_args(ctx cont
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskChecklistName
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskChecklistName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistName(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskChecklistName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistName(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3440,7 +3387,7 @@ func (ec *executionContext) field_Mutation_updateTaskDescription_args(ctx contex
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskDescriptionInput
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskDescriptionInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskDescriptionInput(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskDescriptionInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskDescriptionInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3454,7 +3401,7 @@ func (ec *executionContext) field_Mutation_updateTaskDueDate_args(ctx context.Co
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskDueDate
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskDueDate2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskDueDate(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskDueDate2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskDueDate(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3468,7 +3415,7 @@ func (ec *executionContext) field_Mutation_updateTaskGroupLocation_args(ctx cont
 	args := map[string]interface{}{}
 	var arg0 NewTaskGroupLocation
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewTaskGroupLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTaskGroupLocation(ctx, tmp)
+		arg0, err = ec.unmarshalNNewTaskGroupLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTaskGroupLocation(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3482,7 +3429,7 @@ func (ec *executionContext) field_Mutation_updateTaskGroupName_args(ctx context.
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskGroupName
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskGroupName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskGroupName(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskGroupName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskGroupName(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3496,7 +3443,7 @@ func (ec *executionContext) field_Mutation_updateTaskLocation_args(ctx context.C
 	args := map[string]interface{}{}
 	var arg0 NewTaskLocation
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNNewTaskLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTaskLocation(ctx, tmp)
+		arg0, err = ec.unmarshalNNewTaskLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTaskLocation(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3510,7 +3457,7 @@ func (ec *executionContext) field_Mutation_updateTaskName_args(ctx context.Conte
 	args := map[string]interface{}{}
 	var arg0 UpdateTaskName
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTaskName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskName(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTaskName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskName(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3524,7 +3471,7 @@ func (ec *executionContext) field_Mutation_updateTeamMemberRole_args(ctx context
 	args := map[string]interface{}{}
 	var arg0 UpdateTeamMemberRole
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateTeamMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTeamMemberRole(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateTeamMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTeamMemberRole(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3538,7 +3485,7 @@ func (ec *executionContext) field_Mutation_updateUserPassword_args(ctx context.C
 	args := map[string]interface{}{}
 	var arg0 UpdateUserPassword
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateUserPassword2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserPassword(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateUserPassword2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserPassword(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3552,7 +3499,7 @@ func (ec *executionContext) field_Mutation_updateUserRole_args(ctx context.Conte
 	args := map[string]interface{}{}
 	var arg0 UpdateUserRole
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateUserRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserRole(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateUserRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserRole(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3580,7 +3527,7 @@ func (ec *executionContext) field_Query_findProject_args(ctx context.Context, ra
 	args := map[string]interface{}{}
 	var arg0 FindProject
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNFindProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindProject(ctx, tmp)
+		arg0, err = ec.unmarshalNFindProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindProject(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3594,7 +3541,7 @@ func (ec *executionContext) field_Query_findTask_args(ctx context.Context, rawAr
 	args := map[string]interface{}{}
 	var arg0 FindTask
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNFindTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindTask(ctx, tmp)
+		arg0, err = ec.unmarshalNFindTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindTask(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3608,7 +3555,7 @@ func (ec *executionContext) field_Query_findTeam_args(ctx context.Context, rawAr
 	args := map[string]interface{}{}
 	var arg0 FindTeam
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNFindTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindTeam(ctx, tmp)
+		arg0, err = ec.unmarshalNFindTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindTeam(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3622,7 +3569,7 @@ func (ec *executionContext) field_Query_findUser_args(ctx context.Context, rawAr
 	args := map[string]interface{}{}
 	var arg0 FindUser
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNFindUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindUser(ctx, tmp)
+		arg0, err = ec.unmarshalNFindUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindUser(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3636,7 +3583,7 @@ func (ec *executionContext) field_Query_projects_args(ctx context.Context, rawAr
 	args := map[string]interface{}{}
 	var arg0 *ProjectsFilter
 	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalOProjectsFilter2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProjectsFilter(ctx, tmp)
+		arg0, err = ec.unmarshalOProjectsFilter2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectsFilter(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -3814,7 +3761,7 @@ func (ec *executionContext) _CreateProjectMemberPayload_member(ctx context.Conte
 	}
 	res := resTmp.(*Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _CreateTeamMemberPayload_team(ctx context.Context, field graphql.CollectedField, obj *CreateTeamMemberPayload) (ret graphql.Marshaler) {
@@ -3848,7 +3795,7 @@ func (ec *executionContext) _CreateTeamMemberPayload_team(ctx context.Context, f
 	}
 	res := resTmp.(*db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _CreateTeamMemberPayload_teamMember(ctx context.Context, field graphql.CollectedField, obj *CreateTeamMemberPayload) (ret graphql.Marshaler) {
@@ -3882,7 +3829,7 @@ func (ec *executionContext) _CreateTeamMemberPayload_teamMember(ctx context.Cont
 	}
 	res := resTmp.(*Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteProjectMemberPayload_ok(ctx context.Context, field graphql.CollectedField, obj *DeleteProjectMemberPayload) (ret graphql.Marshaler) {
@@ -3950,7 +3897,7 @@ func (ec *executionContext) _DeleteProjectMemberPayload_member(ctx context.Conte
 	}
 	res := resTmp.(*Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteProjectMemberPayload_projectID(ctx context.Context, field graphql.CollectedField, obj *DeleteProjectMemberPayload) (ret graphql.Marshaler) {
@@ -4052,7 +3999,7 @@ func (ec *executionContext) _DeleteProjectPayload_project(ctx context.Context, f
 	}
 	res := resTmp.(*db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteTaskChecklistItemPayload_ok(ctx context.Context, field graphql.CollectedField, obj *DeleteTaskChecklistItemPayload) (ret graphql.Marshaler) {
@@ -4120,7 +4067,7 @@ func (ec *executionContext) _DeleteTaskChecklistItemPayload_taskChecklistItem(ct
 	}
 	res := resTmp.(*db.TaskChecklistItem)
 	fc.Result = res
-	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteTaskChecklistPayload_ok(ctx context.Context, field graphql.CollectedField, obj *DeleteTaskChecklistPayload) (ret graphql.Marshaler) {
@@ -4188,7 +4135,7 @@ func (ec *executionContext) _DeleteTaskChecklistPayload_taskChecklist(ctx contex
 	}
 	res := resTmp.(*db.TaskChecklist)
 	fc.Result = res
-	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteTaskGroupPayload_ok(ctx context.Context, field graphql.CollectedField, obj *DeleteTaskGroupPayload) (ret graphql.Marshaler) {
@@ -4290,7 +4237,7 @@ func (ec *executionContext) _DeleteTaskGroupPayload_taskGroup(ctx context.Contex
 	}
 	res := resTmp.(*db.TaskGroup)
 	fc.Result = res
-	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
+	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteTaskPayload_taskID(ctx context.Context, field graphql.CollectedField, obj *DeleteTaskPayload) (ret graphql.Marshaler) {
@@ -4426,7 +4373,7 @@ func (ec *executionContext) _DeleteTeamMemberPayload_affectedProjects(ctx contex
 	}
 	res := resTmp.([]db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteTeamPayload_ok(ctx context.Context, field graphql.CollectedField, obj *DeleteTeamPayload) (ret graphql.Marshaler) {
@@ -4494,7 +4441,7 @@ func (ec *executionContext) _DeleteTeamPayload_team(ctx context.Context, field g
 	}
 	res := resTmp.(*db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteTeamPayload_projects(ctx context.Context, field graphql.CollectedField, obj *DeleteTeamPayload) (ret graphql.Marshaler) {
@@ -4528,7 +4475,7 @@ func (ec *executionContext) _DeleteTeamPayload_projects(ctx context.Context, fie
 	}
 	res := resTmp.([]db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _DeleteUserAccountPayload_ok(ctx context.Context, field graphql.CollectedField, obj *DeleteUserAccountPayload) (ret graphql.Marshaler) {
@@ -4596,7 +4543,7 @@ func (ec *executionContext) _DeleteUserAccountPayload_userAccount(ctx context.Co
 	}
 	res := resTmp.(*db.UserAccount)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _LabelColor_id(ctx context.Context, field graphql.CollectedField, obj *db.LabelColor) (ret graphql.Marshaler) {
@@ -4735,6 +4682,108 @@ func (ec *executionContext) _LabelColor_colorHex(ctx context.Context, field grap
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _MePayload_user(ctx context.Context, field graphql.CollectedField, obj *MePayload) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "MePayload",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.User, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*db.UserAccount)
+	fc.Result = res
+	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _MePayload_teamRoles(ctx context.Context, field graphql.CollectedField, obj *MePayload) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "MePayload",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TeamRoles, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]TeamRole)
+	fc.Result = res
+	return ec.marshalNTeamRole2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐTeamRoleᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _MePayload_projectRoles(ctx context.Context, field graphql.CollectedField, obj *MePayload) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "MePayload",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ProjectRoles, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]ProjectRole)
+	fc.Result = res
+	return ec.marshalNProjectRole2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectRoleᚄ(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Member_id(ctx context.Context, field graphql.CollectedField, obj *Member) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -4800,7 +4849,7 @@ func (ec *executionContext) _Member_role(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.(*db.Role)
 	fc.Result = res
-	return ec.marshalNRole2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐRole(ctx, field.Selections, res)
+	return ec.marshalNRole2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐRole(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Member_fullName(ctx context.Context, field graphql.CollectedField, obj *Member) (ret graphql.Marshaler) {
@@ -4902,7 +4951,7 @@ func (ec *executionContext) _Member_profileIcon(ctx context.Context, field graph
 	}
 	res := resTmp.(*ProfileIcon)
 	fc.Result = res
-	return ec.marshalNProfileIcon2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProfileIcon(ctx, field.Selections, res)
+	return ec.marshalNProfileIcon2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProfileIcon(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Member_owned(ctx context.Context, field graphql.CollectedField, obj *Member) (ret graphql.Marshaler) {
@@ -4936,7 +4985,7 @@ func (ec *executionContext) _Member_owned(ctx context.Context, field graphql.Col
 	}
 	res := resTmp.(*OwnedList)
 	fc.Result = res
-	return ec.marshalNOwnedList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐOwnedList(ctx, field.Selections, res)
+	return ec.marshalNOwnedList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐOwnedList(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Member_member(ctx context.Context, field graphql.CollectedField, obj *Member) (ret graphql.Marshaler) {
@@ -4970,7 +5019,7 @@ func (ec *executionContext) _Member_member(ctx context.Context, field graphql.Co
 	}
 	res := resTmp.(*MemberList)
 	fc.Result = res
-	return ec.marshalNMemberList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberList(ctx, field.Selections, res)
+	return ec.marshalNMemberList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberList(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _MemberList_teams(ctx context.Context, field graphql.CollectedField, obj *MemberList) (ret graphql.Marshaler) {
@@ -5004,7 +5053,7 @@ func (ec *executionContext) _MemberList_teams(ctx context.Context, field graphql
 	}
 	res := resTmp.([]db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeamᚄ(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeamᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _MemberList_projects(ctx context.Context, field graphql.CollectedField, obj *MemberList) (ret graphql.Marshaler) {
@@ -5038,7 +5087,7 @@ func (ec *executionContext) _MemberList_projects(ctx context.Context, field grap
 	}
 	res := resTmp.([]db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createProject(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5079,7 +5128,7 @@ func (ec *executionContext) _Mutation_createProject(ctx context.Context, field g
 	}
 	res := resTmp.(*db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteProject(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5120,7 +5169,7 @@ func (ec *executionContext) _Mutation_deleteProject(ctx context.Context, field g
 	}
 	res := resTmp.(*DeleteProjectPayload)
 	fc.Result = res
-	return ec.marshalNDeleteProjectPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteProjectPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateProjectName(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5161,7 +5210,7 @@ func (ec *executionContext) _Mutation_updateProjectName(ctx context.Context, fie
 	}
 	res := resTmp.(*db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createProjectLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5202,7 +5251,7 @@ func (ec *executionContext) _Mutation_createProjectLabel(ctx context.Context, fi
 	}
 	res := resTmp.(*db.ProjectLabel)
 	fc.Result = res
-	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
+	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteProjectLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5243,7 +5292,7 @@ func (ec *executionContext) _Mutation_deleteProjectLabel(ctx context.Context, fi
 	}
 	res := resTmp.(*db.ProjectLabel)
 	fc.Result = res
-	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
+	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateProjectLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5284,7 +5333,7 @@ func (ec *executionContext) _Mutation_updateProjectLabel(ctx context.Context, fi
 	}
 	res := resTmp.(*db.ProjectLabel)
 	fc.Result = res
-	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
+	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateProjectLabelName(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5325,7 +5374,7 @@ func (ec *executionContext) _Mutation_updateProjectLabelName(ctx context.Context
 	}
 	res := resTmp.(*db.ProjectLabel)
 	fc.Result = res
-	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
+	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateProjectLabelColor(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5366,7 +5415,7 @@ func (ec *executionContext) _Mutation_updateProjectLabelColor(ctx context.Contex
 	}
 	res := resTmp.(*db.ProjectLabel)
 	fc.Result = res
-	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
+	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createProjectMember(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5407,7 +5456,7 @@ func (ec *executionContext) _Mutation_createProjectMember(ctx context.Context, f
 	}
 	res := resTmp.(*CreateProjectMemberPayload)
 	fc.Result = res
-	return ec.marshalNCreateProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateProjectMemberPayload(ctx, field.Selections, res)
+	return ec.marshalNCreateProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateProjectMemberPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteProjectMember(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5448,7 +5497,7 @@ func (ec *executionContext) _Mutation_deleteProjectMember(ctx context.Context, f
 	}
 	res := resTmp.(*DeleteProjectMemberPayload)
 	fc.Result = res
-	return ec.marshalNDeleteProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectMemberPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectMemberPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateProjectMemberRole(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5489,48 +5538,7 @@ func (ec *executionContext) _Mutation_updateProjectMemberRole(ctx context.Contex
 	}
 	res := resTmp.(*UpdateProjectMemberRolePayload)
 	fc.Result = res
-	return ec.marshalNUpdateProjectMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectMemberRolePayload(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _Mutation_setProjectOwner(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Mutation",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_setProjectOwner_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().SetProjectOwner(rctx, args["input"].(SetProjectOwner))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*SetProjectOwnerPayload)
-	fc.Result = res
-	return ec.marshalNSetProjectOwnerPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetProjectOwnerPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateProjectMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectMemberRolePayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createTask(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5571,7 +5579,7 @@ func (ec *executionContext) _Mutation_createTask(ctx context.Context, field grap
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteTask(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5612,7 +5620,7 @@ func (ec *executionContext) _Mutation_deleteTask(ctx context.Context, field grap
 	}
 	res := resTmp.(*DeleteTaskPayload)
 	fc.Result = res
-	return ec.marshalNDeleteTaskPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteTaskPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskDescription(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5653,7 +5661,7 @@ func (ec *executionContext) _Mutation_updateTaskDescription(ctx context.Context,
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskLocation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5694,7 +5702,7 @@ func (ec *executionContext) _Mutation_updateTaskLocation(ctx context.Context, fi
 	}
 	res := resTmp.(*UpdateTaskLocationPayload)
 	fc.Result = res
-	return ec.marshalNUpdateTaskLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskLocationPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateTaskLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskLocationPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskName(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5735,7 +5743,7 @@ func (ec *executionContext) _Mutation_updateTaskName(ctx context.Context, field 
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_setTaskComplete(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5776,7 +5784,7 @@ func (ec *executionContext) _Mutation_setTaskComplete(ctx context.Context, field
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskDueDate(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5817,7 +5825,7 @@ func (ec *executionContext) _Mutation_updateTaskDueDate(ctx context.Context, fie
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_assignTask(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5858,7 +5866,7 @@ func (ec *executionContext) _Mutation_assignTask(ctx context.Context, field grap
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_unassignTask(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5899,7 +5907,7 @@ func (ec *executionContext) _Mutation_unassignTask(ctx context.Context, field gr
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createTaskChecklist(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5940,7 +5948,7 @@ func (ec *executionContext) _Mutation_createTaskChecklist(ctx context.Context, f
 	}
 	res := resTmp.(*db.TaskChecklist)
 	fc.Result = res
-	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteTaskChecklist(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5981,7 +5989,7 @@ func (ec *executionContext) _Mutation_deleteTaskChecklist(ctx context.Context, f
 	}
 	res := resTmp.(*DeleteTaskChecklistPayload)
 	fc.Result = res
-	return ec.marshalNDeleteTaskChecklistPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteTaskChecklistPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskChecklistName(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6022,7 +6030,7 @@ func (ec *executionContext) _Mutation_updateTaskChecklistName(ctx context.Contex
 	}
 	res := resTmp.(*db.TaskChecklist)
 	fc.Result = res
-	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createTaskChecklistItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6063,7 +6071,7 @@ func (ec *executionContext) _Mutation_createTaskChecklistItem(ctx context.Contex
 	}
 	res := resTmp.(*db.TaskChecklistItem)
 	fc.Result = res
-	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskChecklistItemName(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6104,7 +6112,7 @@ func (ec *executionContext) _Mutation_updateTaskChecklistItemName(ctx context.Co
 	}
 	res := resTmp.(*db.TaskChecklistItem)
 	fc.Result = res
-	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_setTaskChecklistItemComplete(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6145,7 +6153,7 @@ func (ec *executionContext) _Mutation_setTaskChecklistItemComplete(ctx context.C
 	}
 	res := resTmp.(*db.TaskChecklistItem)
 	fc.Result = res
-	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteTaskChecklistItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6186,7 +6194,7 @@ func (ec *executionContext) _Mutation_deleteTaskChecklistItem(ctx context.Contex
 	}
 	res := resTmp.(*DeleteTaskChecklistItemPayload)
 	fc.Result = res
-	return ec.marshalNDeleteTaskChecklistItemPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistItemPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteTaskChecklistItemPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistItemPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskChecklistLocation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6227,7 +6235,7 @@ func (ec *executionContext) _Mutation_updateTaskChecklistLocation(ctx context.Co
 	}
 	res := resTmp.(*UpdateTaskChecklistLocationPayload)
 	fc.Result = res
-	return ec.marshalNUpdateTaskChecklistLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistLocationPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateTaskChecklistLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistLocationPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskChecklistItemLocation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6268,7 +6276,7 @@ func (ec *executionContext) _Mutation_updateTaskChecklistItemLocation(ctx contex
 	}
 	res := resTmp.(*UpdateTaskChecklistItemLocationPayload)
 	fc.Result = res
-	return ec.marshalNUpdateTaskChecklistItemLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocationPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateTaskChecklistItemLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocationPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createTaskGroup(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6309,7 +6317,7 @@ func (ec *executionContext) _Mutation_createTaskGroup(ctx context.Context, field
 	}
 	res := resTmp.(*db.TaskGroup)
 	fc.Result = res
-	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
+	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskGroupLocation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6350,7 +6358,7 @@ func (ec *executionContext) _Mutation_updateTaskGroupLocation(ctx context.Contex
 	}
 	res := resTmp.(*db.TaskGroup)
 	fc.Result = res
-	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
+	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTaskGroupName(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6391,7 +6399,7 @@ func (ec *executionContext) _Mutation_updateTaskGroupName(ctx context.Context, f
 	}
 	res := resTmp.(*db.TaskGroup)
 	fc.Result = res
-	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
+	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteTaskGroup(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6432,7 +6440,7 @@ func (ec *executionContext) _Mutation_deleteTaskGroup(ctx context.Context, field
 	}
 	res := resTmp.(*DeleteTaskGroupPayload)
 	fc.Result = res
-	return ec.marshalNDeleteTaskGroupPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskGroupPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteTaskGroupPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskGroupPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_addTaskLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6473,7 +6481,7 @@ func (ec *executionContext) _Mutation_addTaskLabel(ctx context.Context, field gr
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_removeTaskLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6514,7 +6522,7 @@ func (ec *executionContext) _Mutation_removeTaskLabel(ctx context.Context, field
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_toggleTaskLabel(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6555,7 +6563,7 @@ func (ec *executionContext) _Mutation_toggleTaskLabel(ctx context.Context, field
 	}
 	res := resTmp.(*ToggleTaskLabelPayload)
 	fc.Result = res
-	return ec.marshalNToggleTaskLabelPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐToggleTaskLabelPayload(ctx, field.Selections, res)
+	return ec.marshalNToggleTaskLabelPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐToggleTaskLabelPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteTeam(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6596,7 +6604,7 @@ func (ec *executionContext) _Mutation_deleteTeam(ctx context.Context, field grap
 	}
 	res := resTmp.(*DeleteTeamPayload)
 	fc.Result = res
-	return ec.marshalNDeleteTeamPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteTeamPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createTeam(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6637,48 +6645,7 @@ func (ec *executionContext) _Mutation_createTeam(ctx context.Context, field grap
 	}
 	res := resTmp.(*db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _Mutation_setTeamOwner(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Mutation",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_setTeamOwner_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().SetTeamOwner(rctx, args["input"].(SetTeamOwner))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*SetTeamOwnerPayload)
-	fc.Result = res
-	return ec.marshalNSetTeamOwnerPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTeamOwnerPayload(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createTeamMember(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6719,7 +6686,7 @@ func (ec *executionContext) _Mutation_createTeamMember(ctx context.Context, fiel
 	}
 	res := resTmp.(*CreateTeamMemberPayload)
 	fc.Result = res
-	return ec.marshalNCreateTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTeamMemberPayload(ctx, field.Selections, res)
+	return ec.marshalNCreateTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTeamMemberPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateTeamMemberRole(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6760,7 +6727,7 @@ func (ec *executionContext) _Mutation_updateTeamMemberRole(ctx context.Context, 
 	}
 	res := resTmp.(*UpdateTeamMemberRolePayload)
 	fc.Result = res
-	return ec.marshalNUpdateTeamMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTeamMemberRolePayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateTeamMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTeamMemberRolePayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteTeamMember(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6801,7 +6768,7 @@ func (ec *executionContext) _Mutation_deleteTeamMember(ctx context.Context, fiel
 	}
 	res := resTmp.(*DeleteTeamMemberPayload)
 	fc.Result = res
-	return ec.marshalNDeleteTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamMemberPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamMemberPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createRefreshToken(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6842,7 +6809,7 @@ func (ec *executionContext) _Mutation_createRefreshToken(ctx context.Context, fi
 	}
 	res := resTmp.(*db.RefreshToken)
 	fc.Result = res
-	return ec.marshalNRefreshToken2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐRefreshToken(ctx, field.Selections, res)
+	return ec.marshalNRefreshToken2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐRefreshToken(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createUserAccount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6883,7 +6850,7 @@ func (ec *executionContext) _Mutation_createUserAccount(ctx context.Context, fie
 	}
 	res := resTmp.(*db.UserAccount)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_deleteUserAccount(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6924,7 +6891,7 @@ func (ec *executionContext) _Mutation_deleteUserAccount(ctx context.Context, fie
 	}
 	res := resTmp.(*DeleteUserAccountPayload)
 	fc.Result = res
-	return ec.marshalNDeleteUserAccountPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteUserAccountPayload(ctx, field.Selections, res)
+	return ec.marshalNDeleteUserAccountPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteUserAccountPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_logoutUser(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -6999,7 +6966,7 @@ func (ec *executionContext) _Mutation_clearProfileAvatar(ctx context.Context, fi
 	}
 	res := resTmp.(*db.UserAccount)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateUserPassword(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -7040,7 +7007,7 @@ func (ec *executionContext) _Mutation_updateUserPassword(ctx context.Context, fi
 	}
 	res := resTmp.(*UpdateUserPasswordPayload)
 	fc.Result = res
-	return ec.marshalNUpdateUserPasswordPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserPasswordPayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateUserPasswordPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserPasswordPayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_updateUserRole(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -7081,7 +7048,7 @@ func (ec *executionContext) _Mutation_updateUserRole(ctx context.Context, field 
 	}
 	res := resTmp.(*UpdateUserRolePayload)
 	fc.Result = res
-	return ec.marshalNUpdateUserRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserRolePayload(ctx, field.Selections, res)
+	return ec.marshalNUpdateUserRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserRolePayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Organization_id(ctx context.Context, field graphql.CollectedField, obj *db.Organization) (ret graphql.Marshaler) {
@@ -7183,7 +7150,7 @@ func (ec *executionContext) _OwnedList_teams(ctx context.Context, field graphql.
 	}
 	res := resTmp.([]db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeamᚄ(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeamᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _OwnedList_projects(ctx context.Context, field graphql.CollectedField, obj *OwnedList) (ret graphql.Marshaler) {
@@ -7217,7 +7184,7 @@ func (ec *executionContext) _OwnedList_projects(ctx context.Context, field graph
 	}
 	res := resTmp.([]db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _OwnersList_projects(ctx context.Context, field graphql.CollectedField, obj *OwnersList) (ret graphql.Marshaler) {
@@ -7514,41 +7481,7 @@ func (ec *executionContext) _Project_team(ctx context.Context, field graphql.Col
 	}
 	res := resTmp.(*db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _Project_owner(ctx context.Context, field graphql.CollectedField, obj *db.Project) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Project",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Project().Owner(rctx, obj)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*Member)
-	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Project_taskGroups(ctx context.Context, field graphql.CollectedField, obj *db.Project) (ret graphql.Marshaler) {
@@ -7582,7 +7515,7 @@ func (ec *executionContext) _Project_taskGroups(ctx context.Context, field graph
 	}
 	res := resTmp.([]db.TaskGroup)
 	fc.Result = res
-	return ec.marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroupᚄ(ctx, field.Selections, res)
+	return ec.marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroupᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Project_members(ctx context.Context, field graphql.CollectedField, obj *db.Project) (ret graphql.Marshaler) {
@@ -7616,7 +7549,7 @@ func (ec *executionContext) _Project_members(ctx context.Context, field graphql.
 	}
 	res := resTmp.([]Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberᚄ(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Project_labels(ctx context.Context, field graphql.CollectedField, obj *db.Project) (ret graphql.Marshaler) {
@@ -7650,7 +7583,7 @@ func (ec *executionContext) _Project_labels(ctx context.Context, field graphql.C
 	}
 	res := resTmp.([]db.ProjectLabel)
 	fc.Result = res
-	return ec.marshalNProjectLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabelᚄ(ctx, field.Selections, res)
+	return ec.marshalNProjectLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabelᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _ProjectLabel_id(ctx context.Context, field graphql.CollectedField, obj *db.ProjectLabel) (ret graphql.Marshaler) {
@@ -7752,7 +7685,7 @@ func (ec *executionContext) _ProjectLabel_labelColor(ctx context.Context, field 
 	}
 	res := resTmp.(*db.LabelColor)
 	fc.Result = res
-	return ec.marshalNLabelColor2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐLabelColor(ctx, field.Selections, res)
+	return ec.marshalNLabelColor2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐLabelColor(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _ProjectLabel_name(ctx context.Context, field graphql.CollectedField, obj *db.ProjectLabel) (ret graphql.Marshaler) {
@@ -7786,6 +7719,74 @@ func (ec *executionContext) _ProjectLabel_name(ctx context.Context, field graphq
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _ProjectRole_projectID(ctx context.Context, field graphql.CollectedField, obj *ProjectRole) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "ProjectRole",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ProjectID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(uuid.UUID)
+	fc.Result = res
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _ProjectRole_roleCode(ctx context.Context, field graphql.CollectedField, obj *ProjectRole) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "ProjectRole",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.RoleCode, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(RoleCode)
+	fc.Result = res
+	return ec.marshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRoleCode(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Query_organizations(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -7817,7 +7818,7 @@ func (ec *executionContext) _Query_organizations(ctx context.Context, field grap
 	}
 	res := resTmp.([]db.Organization)
 	fc.Result = res
-	return ec.marshalNOrganization2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐOrganizationᚄ(ctx, field.Selections, res)
+	return ec.marshalNOrganization2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐOrganizationᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_users(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -7851,7 +7852,7 @@ func (ec *executionContext) _Query_users(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.([]db.UserAccount)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccountᚄ(ctx, field.Selections, res)
+	return ec.marshalNUserAccount2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccountᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_findUser(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -7892,7 +7893,7 @@ func (ec *executionContext) _Query_findUser(ctx context.Context, field graphql.C
 	}
 	res := resTmp.(*db.UserAccount)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_findProject(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -7933,7 +7934,7 @@ func (ec *executionContext) _Query_findProject(ctx context.Context, field graphq
 	}
 	res := resTmp.(*db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProject(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_findTask(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -7974,7 +7975,7 @@ func (ec *executionContext) _Query_findTask(ctx context.Context, field graphql.C
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_projects(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -8015,7 +8016,7 @@ func (ec *executionContext) _Query_projects(ctx context.Context, field graphql.C
 	}
 	res := resTmp.([]db.Project)
 	fc.Result = res
-	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
+	return ec.marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_findTeam(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -8056,7 +8057,7 @@ func (ec *executionContext) _Query_findTeam(ctx context.Context, field graphql.C
 	}
 	res := resTmp.(*db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_teams(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -8090,7 +8091,7 @@ func (ec *executionContext) _Query_teams(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.([]db.Team)
 	fc.Result = res
-	return ec.marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeamᚄ(ctx, field.Selections, res)
+	return ec.marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeamᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_labelColors(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -8124,7 +8125,7 @@ func (ec *executionContext) _Query_labelColors(ctx context.Context, field graphq
 	}
 	res := resTmp.([]db.LabelColor)
 	fc.Result = res
-	return ec.marshalNLabelColor2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐLabelColorᚄ(ctx, field.Selections, res)
+	return ec.marshalNLabelColor2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐLabelColorᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_taskGroups(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -8158,7 +8159,7 @@ func (ec *executionContext) _Query_taskGroups(ctx context.Context, field graphql
 	}
 	res := resTmp.([]db.TaskGroup)
 	fc.Result = res
-	return ec.marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroupᚄ(ctx, field.Selections, res)
+	return ec.marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroupᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_me(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -8190,9 +8191,9 @@ func (ec *executionContext) _Query_me(ctx context.Context, field graphql.Collect
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*db.UserAccount)
+	res := resTmp.(*MePayload)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+	return ec.marshalNMePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMePayload(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -8468,210 +8469,6 @@ func (ec *executionContext) _Role_name(ctx context.Context, field graphql.Collec
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _SetProjectOwnerPayload_ok(ctx context.Context, field graphql.CollectedField, obj *SetProjectOwnerPayload) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "SetProjectOwnerPayload",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Ok, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _SetProjectOwnerPayload_prevOwner(ctx context.Context, field graphql.CollectedField, obj *SetProjectOwnerPayload) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "SetProjectOwnerPayload",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PrevOwner, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*Member)
-	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _SetProjectOwnerPayload_newOwner(ctx context.Context, field graphql.CollectedField, obj *SetProjectOwnerPayload) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "SetProjectOwnerPayload",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.NewOwner, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*Member)
-	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _SetTeamOwnerPayload_ok(ctx context.Context, field graphql.CollectedField, obj *SetTeamOwnerPayload) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "SetTeamOwnerPayload",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Ok, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(bool)
-	fc.Result = res
-	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _SetTeamOwnerPayload_prevOwner(ctx context.Context, field graphql.CollectedField, obj *SetTeamOwnerPayload) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "SetTeamOwnerPayload",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PrevOwner, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*Member)
-	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _SetTeamOwnerPayload_newOwner(ctx context.Context, field graphql.CollectedField, obj *SetTeamOwnerPayload) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "SetTeamOwnerPayload",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.NewOwner, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*Member)
-	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
-}
-
 func (ec *executionContext) _Task_id(ctx context.Context, field graphql.CollectedField, obj *db.Task) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -8737,7 +8534,7 @@ func (ec *executionContext) _Task_taskGroup(ctx context.Context, field graphql.C
 	}
 	res := resTmp.(*db.TaskGroup)
 	fc.Result = res
-	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
+	return ec.marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Task_createdAt(ctx context.Context, field graphql.CollectedField, obj *db.Task) (ret graphql.Marshaler) {
@@ -8969,7 +8766,7 @@ func (ec *executionContext) _Task_assigned(ctx context.Context, field graphql.Co
 	}
 	res := resTmp.([]Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberᚄ(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Task_labels(ctx context.Context, field graphql.CollectedField, obj *db.Task) (ret graphql.Marshaler) {
@@ -9003,7 +8800,7 @@ func (ec *executionContext) _Task_labels(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.([]db.TaskLabel)
 	fc.Result = res
-	return ec.marshalNTaskLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskLabelᚄ(ctx, field.Selections, res)
+	return ec.marshalNTaskLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskLabelᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Task_checklists(ctx context.Context, field graphql.CollectedField, obj *db.Task) (ret graphql.Marshaler) {
@@ -9037,7 +8834,7 @@ func (ec *executionContext) _Task_checklists(ctx context.Context, field graphql.
 	}
 	res := resTmp.([]db.TaskChecklist)
 	fc.Result = res
-	return ec.marshalNTaskChecklist2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistᚄ(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklist2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Task_badges(ctx context.Context, field graphql.CollectedField, obj *db.Task) (ret graphql.Marshaler) {
@@ -9071,7 +8868,7 @@ func (ec *executionContext) _Task_badges(ctx context.Context, field graphql.Coll
 	}
 	res := resTmp.(*TaskBadges)
 	fc.Result = res
-	return ec.marshalNTaskBadges2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐTaskBadges(ctx, field.Selections, res)
+	return ec.marshalNTaskBadges2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐTaskBadges(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _TaskBadges_checklist(ctx context.Context, field graphql.CollectedField, obj *TaskBadges) (ret graphql.Marshaler) {
@@ -9102,7 +8899,7 @@ func (ec *executionContext) _TaskBadges_checklist(ctx context.Context, field gra
 	}
 	res := resTmp.(*ChecklistBadge)
 	fc.Result = res
-	return ec.marshalOChecklistBadge2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐChecklistBadge(ctx, field.Selections, res)
+	return ec.marshalOChecklistBadge2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐChecklistBadge(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _TaskChecklist_id(ctx context.Context, field graphql.CollectedField, obj *db.TaskChecklist) (ret graphql.Marshaler) {
@@ -9238,7 +9035,7 @@ func (ec *executionContext) _TaskChecklist_items(ctx context.Context, field grap
 	}
 	res := resTmp.([]db.TaskChecklistItem)
 	fc.Result = res
-	return ec.marshalNTaskChecklistItem2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItemᚄ(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklistItem2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItemᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _TaskChecklistItem_id(ctx context.Context, field graphql.CollectedField, obj *db.TaskChecklistItem) (ret graphql.Marshaler) {
@@ -9646,7 +9443,7 @@ func (ec *executionContext) _TaskGroup_tasks(ctx context.Context, field graphql.
 	}
 	res := resTmp.([]db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskᚄ(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskᚄ(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _TaskLabel_id(ctx context.Context, field graphql.CollectedField, obj *db.TaskLabel) (ret graphql.Marshaler) {
@@ -9714,7 +9511,7 @@ func (ec *executionContext) _TaskLabel_projectLabel(ctx context.Context, field g
 	}
 	res := resTmp.(*db.ProjectLabel)
 	fc.Result = res
-	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
+	return ec.marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _TaskLabel_assignedDate(ctx context.Context, field graphql.CollectedField, obj *db.TaskLabel) (ret graphql.Marshaler) {
@@ -9884,7 +9681,75 @@ func (ec *executionContext) _Team_members(ctx context.Context, field graphql.Col
 	}
 	res := resTmp.([]Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberᚄ(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _TeamRole_teamID(ctx context.Context, field graphql.CollectedField, obj *TeamRole) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "TeamRole",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TeamID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(uuid.UUID)
+	fc.Result = res
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _TeamRole_roleCode(ctx context.Context, field graphql.CollectedField, obj *TeamRole) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "TeamRole",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.RoleCode, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(RoleCode)
+	fc.Result = res
+	return ec.marshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRoleCode(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _ToggleTaskLabelPayload_active(ctx context.Context, field graphql.CollectedField, obj *ToggleTaskLabelPayload) (ret graphql.Marshaler) {
@@ -9952,7 +9817,7 @@ func (ec *executionContext) _ToggleTaskLabelPayload_task(ctx context.Context, fi
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UpdateProjectMemberRolePayload_ok(ctx context.Context, field graphql.CollectedField, obj *UpdateProjectMemberRolePayload) (ret graphql.Marshaler) {
@@ -10020,7 +9885,7 @@ func (ec *executionContext) _UpdateProjectMemberRolePayload_member(ctx context.C
 	}
 	res := resTmp.(*Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UpdateTaskChecklistItemLocationPayload_checklistID(ctx context.Context, field graphql.CollectedField, obj *UpdateTaskChecklistItemLocationPayload) (ret graphql.Marshaler) {
@@ -10122,7 +9987,7 @@ func (ec *executionContext) _UpdateTaskChecklistItemLocationPayload_checklistIte
 	}
 	res := resTmp.(*db.TaskChecklistItem)
 	fc.Result = res
-	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UpdateTaskChecklistLocationPayload_checklist(ctx context.Context, field graphql.CollectedField, obj *UpdateTaskChecklistLocationPayload) (ret graphql.Marshaler) {
@@ -10156,7 +10021,7 @@ func (ec *executionContext) _UpdateTaskChecklistLocationPayload_checklist(ctx co
 	}
 	res := resTmp.(*db.TaskChecklist)
 	fc.Result = res
-	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
+	return ec.marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklist(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UpdateTaskLocationPayload_previousTaskGroupID(ctx context.Context, field graphql.CollectedField, obj *UpdateTaskLocationPayload) (ret graphql.Marshaler) {
@@ -10224,7 +10089,7 @@ func (ec *executionContext) _UpdateTaskLocationPayload_task(ctx context.Context,
 	}
 	res := resTmp.(*db.Task)
 	fc.Result = res
-	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
+	return ec.marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UpdateTeamMemberRolePayload_ok(ctx context.Context, field graphql.CollectedField, obj *UpdateTeamMemberRolePayload) (ret graphql.Marshaler) {
@@ -10261,6 +10126,40 @@ func (ec *executionContext) _UpdateTeamMemberRolePayload_ok(ctx context.Context,
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _UpdateTeamMemberRolePayload_teamID(ctx context.Context, field graphql.CollectedField, obj *UpdateTeamMemberRolePayload) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "UpdateTeamMemberRolePayload",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TeamID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(uuid.UUID)
+	fc.Result = res
+	return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _UpdateTeamMemberRolePayload_member(ctx context.Context, field graphql.CollectedField, obj *UpdateTeamMemberRolePayload) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -10292,7 +10191,7 @@ func (ec *executionContext) _UpdateTeamMemberRolePayload_member(ctx context.Cont
 	}
 	res := resTmp.(*Member)
 	fc.Result = res
-	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
+	return ec.marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UpdateUserPasswordPayload_ok(ctx context.Context, field graphql.CollectedField, obj *UpdateUserPasswordPayload) (ret graphql.Marshaler) {
@@ -10360,7 +10259,7 @@ func (ec *executionContext) _UpdateUserPasswordPayload_user(ctx context.Context,
 	}
 	res := resTmp.(*db.UserAccount)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UpdateUserRolePayload_user(ctx context.Context, field graphql.CollectedField, obj *UpdateUserRolePayload) (ret graphql.Marshaler) {
@@ -10394,7 +10293,7 @@ func (ec *executionContext) _UpdateUserRolePayload_user(ctx context.Context, fie
 	}
 	res := resTmp.(*db.UserAccount)
 	fc.Result = res
-	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
+	return ec.marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UserAccount_id(ctx context.Context, field graphql.CollectedField, obj *db.UserAccount) (ret graphql.Marshaler) {
@@ -10598,7 +10497,7 @@ func (ec *executionContext) _UserAccount_role(ctx context.Context, field graphql
 	}
 	res := resTmp.(*db.Role)
 	fc.Result = res
-	return ec.marshalNRole2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐRole(ctx, field.Selections, res)
+	return ec.marshalNRole2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐRole(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UserAccount_username(ctx context.Context, field graphql.CollectedField, obj *db.UserAccount) (ret graphql.Marshaler) {
@@ -10666,7 +10565,7 @@ func (ec *executionContext) _UserAccount_profileIcon(ctx context.Context, field 
 	}
 	res := resTmp.(*ProfileIcon)
 	fc.Result = res
-	return ec.marshalNProfileIcon2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProfileIcon(ctx, field.Selections, res)
+	return ec.marshalNProfileIcon2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProfileIcon(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UserAccount_owned(ctx context.Context, field graphql.CollectedField, obj *db.UserAccount) (ret graphql.Marshaler) {
@@ -10700,7 +10599,7 @@ func (ec *executionContext) _UserAccount_owned(ctx context.Context, field graphq
 	}
 	res := resTmp.(*OwnedList)
 	fc.Result = res
-	return ec.marshalNOwnedList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐOwnedList(ctx, field.Selections, res)
+	return ec.marshalNOwnedList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐOwnedList(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _UserAccount_member(ctx context.Context, field graphql.CollectedField, obj *db.UserAccount) (ret graphql.Marshaler) {
@@ -10734,7 +10633,7 @@ func (ec *executionContext) _UserAccount_member(ctx context.Context, field graph
 	}
 	res := resTmp.(*MemberList)
 	fc.Result = res
-	return ec.marshalNMemberList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberList(ctx, field.Selections, res)
+	return ec.marshalNMemberList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberList(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -12542,30 +12441,6 @@ func (ec *executionContext) unmarshalInputRemoveTaskLabelInput(ctx context.Conte
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputSetProjectOwner(ctx context.Context, obj interface{}) (SetProjectOwner, error) {
-	var it SetProjectOwner
-	var asMap = obj.(map[string]interface{})
-
-	for k, v := range asMap {
-		switch k {
-		case "projectID":
-			var err error
-			it.ProjectID, err = ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "ownerID":
-			var err error
-			it.OwnerID, err = ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		}
-	}
-
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputSetTaskChecklistItemComplete(ctx context.Context, obj interface{}) (SetTaskChecklistItemComplete, error) {
 	var it SetTaskChecklistItemComplete
 	var asMap = obj.(map[string]interface{})
@@ -12605,30 +12480,6 @@ func (ec *executionContext) unmarshalInputSetTaskComplete(ctx context.Context, o
 		case "complete":
 			var err error
 			it.Complete, err = ec.unmarshalNBoolean2bool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		}
-	}
-
-	return it, nil
-}
-
-func (ec *executionContext) unmarshalInputSetTeamOwner(ctx context.Context, obj interface{}) (SetTeamOwner, error) {
-	var it SetTeamOwner
-	var asMap = obj.(map[string]interface{})
-
-	for k, v := range asMap {
-		switch k {
-		case "teamID":
-			var err error
-			it.TeamID, err = ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "userID":
-			var err error
-			it.UserID, err = ec.unmarshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -12784,7 +12635,7 @@ func (ec *executionContext) unmarshalInputUpdateProjectMemberRole(ctx context.Co
 			}
 		case "roleCode":
 			var err error
-			it.RoleCode, err = ec.unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRoleCode(ctx, v)
+			it.RoleCode, err = ec.unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRoleCode(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -13036,7 +12887,7 @@ func (ec *executionContext) unmarshalInputUpdateTeamMemberRole(ctx context.Conte
 			}
 		case "roleCode":
 			var err error
-			it.RoleCode, err = ec.unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRoleCode(ctx, v)
+			it.RoleCode, err = ec.unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRoleCode(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -13084,7 +12935,7 @@ func (ec *executionContext) unmarshalInputUpdateUserRole(ctx context.Context, ob
 			}
 		case "roleCode":
 			var err error
-			it.RoleCode, err = ec.unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRoleCode(ctx, v)
+			it.RoleCode, err = ec.unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRoleCode(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -13552,6 +13403,43 @@ func (ec *executionContext) _LabelColor(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var mePayloadImplementors = []string{"MePayload"}
+
+func (ec *executionContext) _MePayload(ctx context.Context, sel ast.SelectionSet, obj *MePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, mePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("MePayload")
+		case "user":
+			out.Values[i] = ec._MePayload_user(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "teamRoles":
+			out.Values[i] = ec._MePayload_teamRoles(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "projectRoles":
+			out.Values[i] = ec._MePayload_projectRoles(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
 var memberImplementors = []string{"Member"}
 
 func (ec *executionContext) _Member(ctx context.Context, sel ast.SelectionSet, obj *Member) graphql.Marshaler {
@@ -13711,11 +13599,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "setProjectOwner":
-			out.Values[i] = ec._Mutation_setProjectOwner(ctx, field)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
 		case "createTask":
 			out.Values[i] = ec._Mutation_createTask(ctx, field)
 			if out.Values[i] == graphql.Null {
@@ -13848,11 +13731,6 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "createTeam":
 			out.Values[i] = ec._Mutation_createTeam(ctx, field)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "setTeamOwner":
-			out.Values[i] = ec._Mutation_setTeamOwner(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -14099,20 +13977,6 @@ func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, 
 				}
 				return res
 			})
-		case "owner":
-			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Project_owner(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
-				return res
-			})
 		case "taskGroups":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -14221,6 +14085,38 @@ func (ec *executionContext) _ProjectLabel(ctx context.Context, sel ast.Selection
 				res = ec._ProjectLabel_name(ctx, field, obj)
 				return res
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var projectRoleImplementors = []string{"ProjectRole"}
+
+func (ec *executionContext) _ProjectRole(ctx context.Context, sel ast.SelectionSet, obj *ProjectRole) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, projectRoleImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ProjectRole")
+		case "projectID":
+			out.Values[i] = ec._ProjectRole_projectID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "roleCode":
+			out.Values[i] = ec._ProjectRole_roleCode(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -14485,80 +14381,6 @@ func (ec *executionContext) _Role(ctx context.Context, sel ast.SelectionSet, obj
 			}
 		case "name":
 			out.Values[i] = ec._Role_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch()
-	if invalids > 0 {
-		return graphql.Null
-	}
-	return out
-}
-
-var setProjectOwnerPayloadImplementors = []string{"SetProjectOwnerPayload"}
-
-func (ec *executionContext) _SetProjectOwnerPayload(ctx context.Context, sel ast.SelectionSet, obj *SetProjectOwnerPayload) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, setProjectOwnerPayloadImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	var invalids uint32
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SetProjectOwnerPayload")
-		case "ok":
-			out.Values[i] = ec._SetProjectOwnerPayload_ok(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "prevOwner":
-			out.Values[i] = ec._SetProjectOwnerPayload_prevOwner(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "newOwner":
-			out.Values[i] = ec._SetProjectOwnerPayload_newOwner(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch()
-	if invalids > 0 {
-		return graphql.Null
-	}
-	return out
-}
-
-var setTeamOwnerPayloadImplementors = []string{"SetTeamOwnerPayload"}
-
-func (ec *executionContext) _SetTeamOwnerPayload(ctx context.Context, sel ast.SelectionSet, obj *SetTeamOwnerPayload) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, setTeamOwnerPayloadImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	var invalids uint32
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("SetTeamOwnerPayload")
-		case "ok":
-			out.Values[i] = ec._SetTeamOwnerPayload_ok(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "prevOwner":
-			out.Values[i] = ec._SetTeamOwnerPayload_prevOwner(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
-		case "newOwner":
-			out.Values[i] = ec._SetTeamOwnerPayload_newOwner(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -15069,6 +14891,38 @@ func (ec *executionContext) _Team(ctx context.Context, sel ast.SelectionSet, obj
 	return out
 }
 
+var teamRoleImplementors = []string{"TeamRole"}
+
+func (ec *executionContext) _TeamRole(ctx context.Context, sel ast.SelectionSet, obj *TeamRole) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, teamRoleImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TeamRole")
+		case "teamID":
+			out.Values[i] = ec._TeamRole_teamID(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "roleCode":
+			out.Values[i] = ec._TeamRole_roleCode(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
 var toggleTaskLabelPayloadImplementors = []string{"ToggleTaskLabelPayload"}
 
 func (ec *executionContext) _ToggleTaskLabelPayload(ctx context.Context, sel ast.SelectionSet, obj *ToggleTaskLabelPayload) graphql.Marshaler {
@@ -15242,6 +15096,11 @@ func (ec *executionContext) _UpdateTeamMemberRolePayload(ctx context.Context, se
 			out.Values[i] = graphql.MarshalString("UpdateTeamMemberRolePayload")
 		case "ok":
 			out.Values[i] = ec._UpdateTeamMemberRolePayload_ok(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "teamID":
+			out.Values[i] = ec._UpdateTeamMemberRolePayload_teamID(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -15696,15 +15555,15 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalNCreateProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateProjectMember(ctx context.Context, v interface{}) (CreateProjectMember, error) {
+func (ec *executionContext) unmarshalNCreateProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateProjectMember(ctx context.Context, v interface{}) (CreateProjectMember, error) {
 	return ec.unmarshalInputCreateProjectMember(ctx, v)
 }
 
-func (ec *executionContext) marshalNCreateProjectMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v CreateProjectMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNCreateProjectMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v CreateProjectMemberPayload) graphql.Marshaler {
 	return ec._CreateProjectMemberPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNCreateProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v *CreateProjectMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNCreateProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v *CreateProjectMemberPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15714,23 +15573,23 @@ func (ec *executionContext) marshalNCreateProjectMemberPayload2ᚖgithubᚗcom�
 	return ec._CreateProjectMemberPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNCreateTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTaskChecklist(ctx context.Context, v interface{}) (CreateTaskChecklist, error) {
+func (ec *executionContext) unmarshalNCreateTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTaskChecklist(ctx context.Context, v interface{}) (CreateTaskChecklist, error) {
 	return ec.unmarshalInputCreateTaskChecklist(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNCreateTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTaskChecklistItem(ctx context.Context, v interface{}) (CreateTaskChecklistItem, error) {
+func (ec *executionContext) unmarshalNCreateTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTaskChecklistItem(ctx context.Context, v interface{}) (CreateTaskChecklistItem, error) {
 	return ec.unmarshalInputCreateTaskChecklistItem(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNCreateTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTeamMember(ctx context.Context, v interface{}) (CreateTeamMember, error) {
+func (ec *executionContext) unmarshalNCreateTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTeamMember(ctx context.Context, v interface{}) (CreateTeamMember, error) {
 	return ec.unmarshalInputCreateTeamMember(ctx, v)
 }
 
-func (ec *executionContext) marshalNCreateTeamMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v CreateTeamMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNCreateTeamMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v CreateTeamMemberPayload) graphql.Marshaler {
 	return ec._CreateTeamMemberPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNCreateTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐCreateTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v *CreateTeamMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNCreateTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐCreateTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v *CreateTeamMemberPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15740,23 +15599,23 @@ func (ec *executionContext) marshalNCreateTeamMemberPayload2ᚖgithubᚗcomᚋjo
 	return ec._CreateTeamMemberPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProject(ctx context.Context, v interface{}) (DeleteProject, error) {
+func (ec *executionContext) unmarshalNDeleteProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProject(ctx context.Context, v interface{}) (DeleteProject, error) {
 	return ec.unmarshalInputDeleteProject(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectLabel(ctx context.Context, v interface{}) (DeleteProjectLabel, error) {
+func (ec *executionContext) unmarshalNDeleteProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectLabel(ctx context.Context, v interface{}) (DeleteProjectLabel, error) {
 	return ec.unmarshalInputDeleteProjectLabel(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectMember(ctx context.Context, v interface{}) (DeleteProjectMember, error) {
+func (ec *executionContext) unmarshalNDeleteProjectMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectMember(ctx context.Context, v interface{}) (DeleteProjectMember, error) {
 	return ec.unmarshalInputDeleteProjectMember(ctx, v)
 }
 
-func (ec *executionContext) marshalNDeleteProjectMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v DeleteProjectMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteProjectMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v DeleteProjectMemberPayload) graphql.Marshaler {
 	return ec._DeleteProjectMemberPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteProjectMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteProjectMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectMemberPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteProjectMemberPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15766,11 +15625,11 @@ func (ec *executionContext) marshalNDeleteProjectMemberPayload2ᚖgithubᚗcom�
 	return ec._DeleteProjectMemberPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNDeleteProjectPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectPayload(ctx context.Context, sel ast.SelectionSet, v DeleteProjectPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteProjectPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectPayload(ctx context.Context, sel ast.SelectionSet, v DeleteProjectPayload) graphql.Marshaler {
 	return ec._DeleteProjectPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteProjectPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteProjectPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteProjectPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteProjectPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteProjectPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteProjectPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15780,19 +15639,19 @@ func (ec *executionContext) marshalNDeleteProjectPayload2ᚖgithubᚗcomᚋjorda
 	return ec._DeleteProjectPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklist(ctx context.Context, v interface{}) (DeleteTaskChecklist, error) {
+func (ec *executionContext) unmarshalNDeleteTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklist(ctx context.Context, v interface{}) (DeleteTaskChecklist, error) {
 	return ec.unmarshalInputDeleteTaskChecklist(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistItem(ctx context.Context, v interface{}) (DeleteTaskChecklistItem, error) {
+func (ec *executionContext) unmarshalNDeleteTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistItem(ctx context.Context, v interface{}) (DeleteTaskChecklistItem, error) {
 	return ec.unmarshalInputDeleteTaskChecklistItem(ctx, v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskChecklistItemPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistItemPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskChecklistItemPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskChecklistItemPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistItemPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskChecklistItemPayload) graphql.Marshaler {
 	return ec._DeleteTaskChecklistItemPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskChecklistItemPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistItemPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskChecklistItemPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskChecklistItemPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistItemPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskChecklistItemPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15802,11 +15661,11 @@ func (ec *executionContext) marshalNDeleteTaskChecklistItemPayload2ᚖgithubᚗc
 	return ec._DeleteTaskChecklistItemPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskChecklistPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskChecklistPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskChecklistPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskChecklistPayload) graphql.Marshaler {
 	return ec._DeleteTaskChecklistPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskChecklistPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskChecklistPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskChecklistPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskChecklistPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskChecklistPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskChecklistPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15816,15 +15675,15 @@ func (ec *executionContext) marshalNDeleteTaskChecklistPayload2ᚖgithubᚗcom�
 	return ec._DeleteTaskChecklistPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteTaskGroupInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskGroupInput(ctx context.Context, v interface{}) (DeleteTaskGroupInput, error) {
+func (ec *executionContext) unmarshalNDeleteTaskGroupInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskGroupInput(ctx context.Context, v interface{}) (DeleteTaskGroupInput, error) {
 	return ec.unmarshalInputDeleteTaskGroupInput(ctx, v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskGroupPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskGroupPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskGroupPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskGroupPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskGroupPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskGroupPayload) graphql.Marshaler {
 	return ec._DeleteTaskGroupPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskGroupPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskGroupPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskGroupPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskGroupPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskGroupPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskGroupPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15834,15 +15693,15 @@ func (ec *executionContext) marshalNDeleteTaskGroupPayload2ᚖgithubᚗcomᚋjor
 	return ec._DeleteTaskGroupPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskInput(ctx context.Context, v interface{}) (DeleteTaskInput, error) {
+func (ec *executionContext) unmarshalNDeleteTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskInput(ctx context.Context, v interface{}) (DeleteTaskInput, error) {
 	return ec.unmarshalInputDeleteTaskInput(ctx, v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTaskPayload) graphql.Marshaler {
 	return ec._DeleteTaskPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteTaskPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTaskPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTaskPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTaskPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTaskPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15852,19 +15711,19 @@ func (ec *executionContext) marshalNDeleteTaskPayload2ᚖgithubᚗcomᚋjordankn
 	return ec._DeleteTaskPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeam(ctx context.Context, v interface{}) (DeleteTeam, error) {
+func (ec *executionContext) unmarshalNDeleteTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeam(ctx context.Context, v interface{}) (DeleteTeam, error) {
 	return ec.unmarshalInputDeleteTeam(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamMember(ctx context.Context, v interface{}) (DeleteTeamMember, error) {
+func (ec *executionContext) unmarshalNDeleteTeamMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamMember(ctx context.Context, v interface{}) (DeleteTeamMember, error) {
 	return ec.unmarshalInputDeleteTeamMember(ctx, v)
 }
 
-func (ec *executionContext) marshalNDeleteTeamMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTeamMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTeamMemberPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTeamMemberPayload) graphql.Marshaler {
 	return ec._DeleteTeamMemberPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTeamMemberPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTeamMemberPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamMemberPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTeamMemberPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15874,11 +15733,11 @@ func (ec *executionContext) marshalNDeleteTeamMemberPayload2ᚖgithubᚗcomᚋjo
 	return ec._DeleteTeamMemberPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNDeleteTeamPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTeamPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTeamPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamPayload(ctx context.Context, sel ast.SelectionSet, v DeleteTeamPayload) graphql.Marshaler {
 	return ec._DeleteTeamPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteTeamPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteTeamPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTeamPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteTeamPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteTeamPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteTeamPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15888,15 +15747,15 @@ func (ec *executionContext) marshalNDeleteTeamPayload2ᚖgithubᚗcomᚋjordankn
 	return ec._DeleteTeamPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNDeleteUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteUserAccount(ctx context.Context, v interface{}) (DeleteUserAccount, error) {
+func (ec *executionContext) unmarshalNDeleteUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteUserAccount(ctx context.Context, v interface{}) (DeleteUserAccount, error) {
 	return ec.unmarshalInputDeleteUserAccount(ctx, v)
 }
 
-func (ec *executionContext) marshalNDeleteUserAccountPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteUserAccountPayload(ctx context.Context, sel ast.SelectionSet, v DeleteUserAccountPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteUserAccountPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteUserAccountPayload(ctx context.Context, sel ast.SelectionSet, v DeleteUserAccountPayload) graphql.Marshaler {
 	return ec._DeleteUserAccountPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNDeleteUserAccountPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐDeleteUserAccountPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteUserAccountPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNDeleteUserAccountPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐDeleteUserAccountPayload(ctx context.Context, sel ast.SelectionSet, v *DeleteUserAccountPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -15906,19 +15765,19 @@ func (ec *executionContext) marshalNDeleteUserAccountPayload2ᚖgithubᚗcomᚋj
 	return ec._DeleteUserAccountPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNFindProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindProject(ctx context.Context, v interface{}) (FindProject, error) {
+func (ec *executionContext) unmarshalNFindProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindProject(ctx context.Context, v interface{}) (FindProject, error) {
 	return ec.unmarshalInputFindProject(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNFindTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindTask(ctx context.Context, v interface{}) (FindTask, error) {
+func (ec *executionContext) unmarshalNFindTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindTask(ctx context.Context, v interface{}) (FindTask, error) {
 	return ec.unmarshalInputFindTask(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNFindTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindTeam(ctx context.Context, v interface{}) (FindTeam, error) {
+func (ec *executionContext) unmarshalNFindTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindTeam(ctx context.Context, v interface{}) (FindTeam, error) {
 	return ec.unmarshalInputFindTeam(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNFindUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐFindUser(ctx context.Context, v interface{}) (FindUser, error) {
+func (ec *executionContext) unmarshalNFindUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐFindUser(ctx context.Context, v interface{}) (FindUser, error) {
 	return ec.unmarshalInputFindUser(ctx, v)
 }
 
@@ -15964,11 +15823,11 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) marshalNLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐLabelColor(ctx context.Context, sel ast.SelectionSet, v db.LabelColor) graphql.Marshaler {
+func (ec *executionContext) marshalNLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐLabelColor(ctx context.Context, sel ast.SelectionSet, v db.LabelColor) graphql.Marshaler {
 	return ec._LabelColor(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNLabelColor2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐLabelColorᚄ(ctx context.Context, sel ast.SelectionSet, v []db.LabelColor) graphql.Marshaler {
+func (ec *executionContext) marshalNLabelColor2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐLabelColorᚄ(ctx context.Context, sel ast.SelectionSet, v []db.LabelColor) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -15992,7 +15851,7 @@ func (ec *executionContext) marshalNLabelColor2ᚕgithubᚗcomᚋjordanknottᚋp
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐLabelColor(ctx, sel, v[i])
+			ret[i] = ec.marshalNLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐLabelColor(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16005,7 +15864,7 @@ func (ec *executionContext) marshalNLabelColor2ᚕgithubᚗcomᚋjordanknottᚋp
 	return ret
 }
 
-func (ec *executionContext) marshalNLabelColor2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐLabelColor(ctx context.Context, sel ast.SelectionSet, v *db.LabelColor) graphql.Marshaler {
+func (ec *executionContext) marshalNLabelColor2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐLabelColor(ctx context.Context, sel ast.SelectionSet, v *db.LabelColor) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16015,15 +15874,29 @@ func (ec *executionContext) marshalNLabelColor2ᚖgithubᚗcomᚋjordanknottᚋp
 	return ec._LabelColor(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNLogoutUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐLogoutUser(ctx context.Context, v interface{}) (LogoutUser, error) {
+func (ec *executionContext) unmarshalNLogoutUser2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐLogoutUser(ctx context.Context, v interface{}) (LogoutUser, error) {
 	return ec.unmarshalInputLogoutUser(ctx, v)
 }
 
-func (ec *executionContext) marshalNMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx context.Context, sel ast.SelectionSet, v Member) graphql.Marshaler {
+func (ec *executionContext) marshalNMePayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMePayload(ctx context.Context, sel ast.SelectionSet, v MePayload) graphql.Marshaler {
+	return ec._MePayload(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNMePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMePayload(ctx context.Context, sel ast.SelectionSet, v *MePayload) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	return ec._MePayload(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx context.Context, sel ast.SelectionSet, v Member) graphql.Marshaler {
 	return ec._Member(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberᚄ(ctx context.Context, sel ast.SelectionSet, v []Member) graphql.Marshaler {
+func (ec *executionContext) marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberᚄ(ctx context.Context, sel ast.SelectionSet, v []Member) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16047,7 +15920,7 @@ func (ec *executionContext) marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋproje
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx, sel, v[i])
+			ret[i] = ec.marshalNMember2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16060,7 +15933,7 @@ func (ec *executionContext) marshalNMember2ᚕgithubᚗcomᚋjordanknottᚋproje
 	return ret
 }
 
-func (ec *executionContext) marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMember(ctx context.Context, sel ast.SelectionSet, v *Member) graphql.Marshaler {
+func (ec *executionContext) marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMember(ctx context.Context, sel ast.SelectionSet, v *Member) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16070,11 +15943,11 @@ func (ec *executionContext) marshalNMember2ᚖgithubᚗcomᚋjordanknottᚋproje
 	return ec._Member(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNMemberList2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberList(ctx context.Context, sel ast.SelectionSet, v MemberList) graphql.Marshaler {
+func (ec *executionContext) marshalNMemberList2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberList(ctx context.Context, sel ast.SelectionSet, v MemberList) graphql.Marshaler {
 	return ec._MemberList(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNMemberList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐMemberList(ctx context.Context, sel ast.SelectionSet, v *MemberList) graphql.Marshaler {
+func (ec *executionContext) marshalNMemberList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐMemberList(ctx context.Context, sel ast.SelectionSet, v *MemberList) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16084,47 +15957,47 @@ func (ec *executionContext) marshalNMemberList2ᚖgithubᚗcomᚋjordanknottᚋp
 	return ec._MemberList(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNNewProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewProject(ctx context.Context, v interface{}) (NewProject, error) {
+func (ec *executionContext) unmarshalNNewProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewProject(ctx context.Context, v interface{}) (NewProject, error) {
 	return ec.unmarshalInputNewProject(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewProjectLabel(ctx context.Context, v interface{}) (NewProjectLabel, error) {
+func (ec *executionContext) unmarshalNNewProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewProjectLabel(ctx context.Context, v interface{}) (NewProjectLabel, error) {
 	return ec.unmarshalInputNewProjectLabel(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewRefreshToken2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewRefreshToken(ctx context.Context, v interface{}) (NewRefreshToken, error) {
+func (ec *executionContext) unmarshalNNewRefreshToken2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewRefreshToken(ctx context.Context, v interface{}) (NewRefreshToken, error) {
 	return ec.unmarshalInputNewRefreshToken(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTask(ctx context.Context, v interface{}) (NewTask, error) {
+func (ec *executionContext) unmarshalNNewTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTask(ctx context.Context, v interface{}) (NewTask, error) {
 	return ec.unmarshalInputNewTask(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTaskGroup(ctx context.Context, v interface{}) (NewTaskGroup, error) {
+func (ec *executionContext) unmarshalNNewTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTaskGroup(ctx context.Context, v interface{}) (NewTaskGroup, error) {
 	return ec.unmarshalInputNewTaskGroup(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewTaskGroupLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTaskGroupLocation(ctx context.Context, v interface{}) (NewTaskGroupLocation, error) {
+func (ec *executionContext) unmarshalNNewTaskGroupLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTaskGroupLocation(ctx context.Context, v interface{}) (NewTaskGroupLocation, error) {
 	return ec.unmarshalInputNewTaskGroupLocation(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewTaskLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTaskLocation(ctx context.Context, v interface{}) (NewTaskLocation, error) {
+func (ec *executionContext) unmarshalNNewTaskLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTaskLocation(ctx context.Context, v interface{}) (NewTaskLocation, error) {
 	return ec.unmarshalInputNewTaskLocation(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewTeam(ctx context.Context, v interface{}) (NewTeam, error) {
+func (ec *executionContext) unmarshalNNewTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewTeam(ctx context.Context, v interface{}) (NewTeam, error) {
 	return ec.unmarshalInputNewTeam(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNNewUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐNewUserAccount(ctx context.Context, v interface{}) (NewUserAccount, error) {
+func (ec *executionContext) unmarshalNNewUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐNewUserAccount(ctx context.Context, v interface{}) (NewUserAccount, error) {
 	return ec.unmarshalInputNewUserAccount(ctx, v)
 }
 
-func (ec *executionContext) marshalNOrganization2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐOrganization(ctx context.Context, sel ast.SelectionSet, v db.Organization) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganization2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐOrganization(ctx context.Context, sel ast.SelectionSet, v db.Organization) graphql.Marshaler {
 	return ec._Organization(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNOrganization2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐOrganizationᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Organization) graphql.Marshaler {
+func (ec *executionContext) marshalNOrganization2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐOrganizationᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Organization) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16148,7 +16021,7 @@ func (ec *executionContext) marshalNOrganization2ᚕgithubᚗcomᚋjordanknott�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNOrganization2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐOrganization(ctx, sel, v[i])
+			ret[i] = ec.marshalNOrganization2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐOrganization(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16161,11 +16034,11 @@ func (ec *executionContext) marshalNOrganization2ᚕgithubᚗcomᚋjordanknott�
 	return ret
 }
 
-func (ec *executionContext) marshalNOwnedList2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐOwnedList(ctx context.Context, sel ast.SelectionSet, v OwnedList) graphql.Marshaler {
+func (ec *executionContext) marshalNOwnedList2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐOwnedList(ctx context.Context, sel ast.SelectionSet, v OwnedList) graphql.Marshaler {
 	return ec._OwnedList(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNOwnedList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐOwnedList(ctx context.Context, sel ast.SelectionSet, v *OwnedList) graphql.Marshaler {
+func (ec *executionContext) marshalNOwnedList2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐOwnedList(ctx context.Context, sel ast.SelectionSet, v *OwnedList) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16175,11 +16048,11 @@ func (ec *executionContext) marshalNOwnedList2ᚖgithubᚗcomᚋjordanknottᚋpr
 	return ec._OwnedList(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProfileIcon2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProfileIcon(ctx context.Context, sel ast.SelectionSet, v ProfileIcon) graphql.Marshaler {
+func (ec *executionContext) marshalNProfileIcon2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProfileIcon(ctx context.Context, sel ast.SelectionSet, v ProfileIcon) graphql.Marshaler {
 	return ec._ProfileIcon(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNProfileIcon2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProfileIcon(ctx context.Context, sel ast.SelectionSet, v *ProfileIcon) graphql.Marshaler {
+func (ec *executionContext) marshalNProfileIcon2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProfileIcon(ctx context.Context, sel ast.SelectionSet, v *ProfileIcon) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16189,11 +16062,11 @@ func (ec *executionContext) marshalNProfileIcon2ᚖgithubᚗcomᚋjordanknottᚋ
 	return ec._ProfileIcon(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProject(ctx context.Context, sel ast.SelectionSet, v db.Project) graphql.Marshaler {
+func (ec *executionContext) marshalNProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProject(ctx context.Context, sel ast.SelectionSet, v db.Project) graphql.Marshaler {
 	return ec._Project(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Project) graphql.Marshaler {
+func (ec *executionContext) marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Project) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16217,7 +16090,7 @@ func (ec *executionContext) marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋproj
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProject(ctx, sel, v[i])
+			ret[i] = ec.marshalNProject2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProject(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16230,7 +16103,7 @@ func (ec *executionContext) marshalNProject2ᚕgithubᚗcomᚋjordanknottᚋproj
 	return ret
 }
 
-func (ec *executionContext) marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProject(ctx context.Context, sel ast.SelectionSet, v *db.Project) graphql.Marshaler {
+func (ec *executionContext) marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProject(ctx context.Context, sel ast.SelectionSet, v *db.Project) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16240,11 +16113,11 @@ func (ec *executionContext) marshalNProject2ᚖgithubᚗcomᚋjordanknottᚋproj
 	return ec._Project(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx context.Context, sel ast.SelectionSet, v db.ProjectLabel) graphql.Marshaler {
+func (ec *executionContext) marshalNProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx context.Context, sel ast.SelectionSet, v db.ProjectLabel) graphql.Marshaler {
 	return ec._ProjectLabel(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNProjectLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabelᚄ(ctx context.Context, sel ast.SelectionSet, v []db.ProjectLabel) graphql.Marshaler {
+func (ec *executionContext) marshalNProjectLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabelᚄ(ctx context.Context, sel ast.SelectionSet, v []db.ProjectLabel) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16268,7 +16141,7 @@ func (ec *executionContext) marshalNProjectLabel2ᚕgithubᚗcomᚋjordanknott�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx, sel, v[i])
+			ret[i] = ec.marshalNProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16281,7 +16154,7 @@ func (ec *executionContext) marshalNProjectLabel2ᚕgithubᚗcomᚋjordanknott�
 	return ret
 }
 
-func (ec *executionContext) marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐProjectLabel(ctx context.Context, sel ast.SelectionSet, v *db.ProjectLabel) graphql.Marshaler {
+func (ec *executionContext) marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐProjectLabel(ctx context.Context, sel ast.SelectionSet, v *db.ProjectLabel) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16291,11 +16164,52 @@ func (ec *executionContext) marshalNProjectLabel2ᚖgithubᚗcomᚋjordanknott�
 	return ec._ProjectLabel(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRefreshToken2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐRefreshToken(ctx context.Context, sel ast.SelectionSet, v db.RefreshToken) graphql.Marshaler {
+func (ec *executionContext) marshalNProjectRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectRole(ctx context.Context, sel ast.SelectionSet, v ProjectRole) graphql.Marshaler {
+	return ec._ProjectRole(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNProjectRole2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectRoleᚄ(ctx context.Context, sel ast.SelectionSet, v []ProjectRole) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNProjectRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectRole(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
+}
+
+func (ec *executionContext) marshalNRefreshToken2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐRefreshToken(ctx context.Context, sel ast.SelectionSet, v db.RefreshToken) graphql.Marshaler {
 	return ec._RefreshToken(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRefreshToken2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐRefreshToken(ctx context.Context, sel ast.SelectionSet, v *db.RefreshToken) graphql.Marshaler {
+func (ec *executionContext) marshalNRefreshToken2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐRefreshToken(ctx context.Context, sel ast.SelectionSet, v *db.RefreshToken) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16305,11 +16219,11 @@ func (ec *executionContext) marshalNRefreshToken2ᚖgithubᚗcomᚋjordanknott�
 	return ec._RefreshToken(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐRole(ctx context.Context, sel ast.SelectionSet, v db.Role) graphql.Marshaler {
+func (ec *executionContext) marshalNRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐRole(ctx context.Context, sel ast.SelectionSet, v db.Role) graphql.Marshaler {
 	return ec._Role(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNRole2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐRole(ctx context.Context, sel ast.SelectionSet, v *db.Role) graphql.Marshaler {
+func (ec *executionContext) marshalNRole2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐRole(ctx context.Context, sel ast.SelectionSet, v *db.Role) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16319,57 +16233,21 @@ func (ec *executionContext) marshalNRole2ᚖgithubᚗcomᚋjordanknottᚋproject
 	return ec._Role(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRoleCode(ctx context.Context, v interface{}) (RoleCode, error) {
+func (ec *executionContext) unmarshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRoleCode(ctx context.Context, v interface{}) (RoleCode, error) {
 	var res RoleCode
 	return res, res.UnmarshalGQL(v)
 }
 
-func (ec *executionContext) marshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRoleCode(ctx context.Context, sel ast.SelectionSet, v RoleCode) graphql.Marshaler {
+func (ec *executionContext) marshalNRoleCode2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRoleCode(ctx context.Context, sel ast.SelectionSet, v RoleCode) graphql.Marshaler {
 	return v
 }
 
-func (ec *executionContext) unmarshalNSetProjectOwner2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetProjectOwner(ctx context.Context, v interface{}) (SetProjectOwner, error) {
-	return ec.unmarshalInputSetProjectOwner(ctx, v)
-}
-
-func (ec *executionContext) marshalNSetProjectOwnerPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetProjectOwnerPayload(ctx context.Context, sel ast.SelectionSet, v SetProjectOwnerPayload) graphql.Marshaler {
-	return ec._SetProjectOwnerPayload(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNSetProjectOwnerPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetProjectOwnerPayload(ctx context.Context, sel ast.SelectionSet, v *SetProjectOwnerPayload) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	return ec._SetProjectOwnerPayload(ctx, sel, v)
-}
-
-func (ec *executionContext) unmarshalNSetTaskChecklistItemComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTaskChecklistItemComplete(ctx context.Context, v interface{}) (SetTaskChecklistItemComplete, error) {
+func (ec *executionContext) unmarshalNSetTaskChecklistItemComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐSetTaskChecklistItemComplete(ctx context.Context, v interface{}) (SetTaskChecklistItemComplete, error) {
 	return ec.unmarshalInputSetTaskChecklistItemComplete(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNSetTaskComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTaskComplete(ctx context.Context, v interface{}) (SetTaskComplete, error) {
+func (ec *executionContext) unmarshalNSetTaskComplete2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐSetTaskComplete(ctx context.Context, v interface{}) (SetTaskComplete, error) {
 	return ec.unmarshalInputSetTaskComplete(ctx, v)
-}
-
-func (ec *executionContext) unmarshalNSetTeamOwner2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTeamOwner(ctx context.Context, v interface{}) (SetTeamOwner, error) {
-	return ec.unmarshalInputSetTeamOwner(ctx, v)
-}
-
-func (ec *executionContext) marshalNSetTeamOwnerPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTeamOwnerPayload(ctx context.Context, sel ast.SelectionSet, v SetTeamOwnerPayload) graphql.Marshaler {
-	return ec._SetTeamOwnerPayload(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNSetTeamOwnerPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐSetTeamOwnerPayload(ctx context.Context, sel ast.SelectionSet, v *SetTeamOwnerPayload) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	return ec._SetTeamOwnerPayload(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
@@ -16386,11 +16264,11 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
-func (ec *executionContext) marshalNTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx context.Context, sel ast.SelectionSet, v db.Task) graphql.Marshaler {
+func (ec *executionContext) marshalNTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx context.Context, sel ast.SelectionSet, v db.Task) graphql.Marshaler {
 	return ec._Task(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTask2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Task) graphql.Marshaler {
+func (ec *executionContext) marshalNTask2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Task) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16414,7 +16292,7 @@ func (ec *executionContext) marshalNTask2ᚕgithubᚗcomᚋjordanknottᚋproject
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx, sel, v[i])
+			ret[i] = ec.marshalNTask2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16427,7 +16305,7 @@ func (ec *executionContext) marshalNTask2ᚕgithubᚗcomᚋjordanknottᚋproject
 	return ret
 }
 
-func (ec *executionContext) marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTask(ctx context.Context, sel ast.SelectionSet, v *db.Task) graphql.Marshaler {
+func (ec *executionContext) marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTask(ctx context.Context, sel ast.SelectionSet, v *db.Task) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16437,11 +16315,11 @@ func (ec *executionContext) marshalNTask2ᚖgithubᚗcomᚋjordanknottᚋproject
 	return ec._Task(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTaskBadges2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐTaskBadges(ctx context.Context, sel ast.SelectionSet, v TaskBadges) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskBadges2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐTaskBadges(ctx context.Context, sel ast.SelectionSet, v TaskBadges) graphql.Marshaler {
 	return ec._TaskBadges(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTaskBadges2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐTaskBadges(ctx context.Context, sel ast.SelectionSet, v *TaskBadges) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskBadges2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐTaskBadges(ctx context.Context, sel ast.SelectionSet, v *TaskBadges) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16451,11 +16329,11 @@ func (ec *executionContext) marshalNTaskBadges2ᚖgithubᚗcomᚋjordanknottᚋp
 	return ec._TaskBadges(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklist(ctx context.Context, sel ast.SelectionSet, v db.TaskChecklist) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklist(ctx context.Context, sel ast.SelectionSet, v db.TaskChecklist) graphql.Marshaler {
 	return ec._TaskChecklist(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTaskChecklist2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskChecklist) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskChecklist2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskChecklist) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16479,7 +16357,7 @@ func (ec *executionContext) marshalNTaskChecklist2ᚕgithubᚗcomᚋjordanknott�
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklist(ctx, sel, v[i])
+			ret[i] = ec.marshalNTaskChecklist2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklist(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16492,7 +16370,7 @@ func (ec *executionContext) marshalNTaskChecklist2ᚕgithubᚗcomᚋjordanknott�
 	return ret
 }
 
-func (ec *executionContext) marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklist(ctx context.Context, sel ast.SelectionSet, v *db.TaskChecklist) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklist(ctx context.Context, sel ast.SelectionSet, v *db.TaskChecklist) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16502,11 +16380,11 @@ func (ec *executionContext) marshalNTaskChecklist2ᚖgithubᚗcomᚋjordanknott�
 	return ec._TaskChecklist(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx context.Context, sel ast.SelectionSet, v db.TaskChecklistItem) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx context.Context, sel ast.SelectionSet, v db.TaskChecklistItem) graphql.Marshaler {
 	return ec._TaskChecklistItem(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTaskChecklistItem2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItemᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskChecklistItem) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskChecklistItem2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItemᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskChecklistItem) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16530,7 +16408,7 @@ func (ec *executionContext) marshalNTaskChecklistItem2ᚕgithubᚗcomᚋjordankn
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx, sel, v[i])
+			ret[i] = ec.marshalNTaskChecklistItem2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16543,7 +16421,7 @@ func (ec *executionContext) marshalNTaskChecklistItem2ᚕgithubᚗcomᚋjordankn
 	return ret
 }
 
-func (ec *executionContext) marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskChecklistItem(ctx context.Context, sel ast.SelectionSet, v *db.TaskChecklistItem) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskChecklistItem(ctx context.Context, sel ast.SelectionSet, v *db.TaskChecklistItem) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16553,11 +16431,11 @@ func (ec *executionContext) marshalNTaskChecklistItem2ᚖgithubᚗcomᚋjordankn
 	return ec._TaskChecklistItem(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx context.Context, sel ast.SelectionSet, v db.TaskGroup) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx context.Context, sel ast.SelectionSet, v db.TaskGroup) graphql.Marshaler {
 	return ec._TaskGroup(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroupᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskGroup) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroupᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskGroup) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16581,7 +16459,7 @@ func (ec *executionContext) marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋpr
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx, sel, v[i])
+			ret[i] = ec.marshalNTaskGroup2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16594,7 +16472,7 @@ func (ec *executionContext) marshalNTaskGroup2ᚕgithubᚗcomᚋjordanknottᚋpr
 	return ret
 }
 
-func (ec *executionContext) marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskGroup(ctx context.Context, sel ast.SelectionSet, v *db.TaskGroup) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskGroup(ctx context.Context, sel ast.SelectionSet, v *db.TaskGroup) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16604,11 +16482,11 @@ func (ec *executionContext) marshalNTaskGroup2ᚖgithubᚗcomᚋjordanknottᚋpr
 	return ec._TaskGroup(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTaskLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskLabel(ctx context.Context, sel ast.SelectionSet, v db.TaskLabel) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskLabel(ctx context.Context, sel ast.SelectionSet, v db.TaskLabel) graphql.Marshaler {
 	return ec._TaskLabel(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTaskLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskLabelᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskLabel) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskLabel2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskLabelᚄ(ctx context.Context, sel ast.SelectionSet, v []db.TaskLabel) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16632,7 +16510,7 @@ func (ec *executionContext) marshalNTaskLabel2ᚕgithubᚗcomᚋjordanknottᚋpr
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTaskLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTaskLabel(ctx, sel, v[i])
+			ret[i] = ec.marshalNTaskLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTaskLabel(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16645,11 +16523,11 @@ func (ec *executionContext) marshalNTaskLabel2ᚕgithubᚗcomᚋjordanknottᚋpr
 	return ret
 }
 
-func (ec *executionContext) marshalNTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx context.Context, sel ast.SelectionSet, v db.Team) graphql.Marshaler {
+func (ec *executionContext) marshalNTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx context.Context, sel ast.SelectionSet, v db.Team) graphql.Marshaler {
 	return ec._Team(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeamᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Team) graphql.Marshaler {
+func (ec *executionContext) marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeamᚄ(ctx context.Context, sel ast.SelectionSet, v []db.Team) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16673,7 +16551,7 @@ func (ec *executionContext) marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋproject
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx, sel, v[i])
+			ret[i] = ec.marshalNTeam2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16686,7 +16564,7 @@ func (ec *executionContext) marshalNTeam2ᚕgithubᚗcomᚋjordanknottᚋproject
 	return ret
 }
 
-func (ec *executionContext) marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐTeam(ctx context.Context, sel ast.SelectionSet, v *db.Team) graphql.Marshaler {
+func (ec *executionContext) marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐTeam(ctx context.Context, sel ast.SelectionSet, v *db.Team) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16694,6 +16572,47 @@ func (ec *executionContext) marshalNTeam2ᚖgithubᚗcomᚋjordanknottᚋproject
 		return graphql.Null
 	}
 	return ec._Team(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTeamRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐTeamRole(ctx context.Context, sel ast.SelectionSet, v TeamRole) graphql.Marshaler {
+	return ec._TeamRole(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTeamRole2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐTeamRoleᚄ(ctx context.Context, sel ast.SelectionSet, v []TeamRole) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNTeamRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐTeamRole(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+	return ret
 }
 
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v interface{}) (time.Time, error) {
@@ -16728,15 +16647,15 @@ func (ec *executionContext) marshalNTime2ᚖtimeᚐTime(ctx context.Context, sel
 	return ec.marshalNTime2timeᚐTime(ctx, sel, *v)
 }
 
-func (ec *executionContext) unmarshalNToggleTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐToggleTaskLabelInput(ctx context.Context, v interface{}) (ToggleTaskLabelInput, error) {
+func (ec *executionContext) unmarshalNToggleTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐToggleTaskLabelInput(ctx context.Context, v interface{}) (ToggleTaskLabelInput, error) {
 	return ec.unmarshalInputToggleTaskLabelInput(ctx, v)
 }
 
-func (ec *executionContext) marshalNToggleTaskLabelPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐToggleTaskLabelPayload(ctx context.Context, sel ast.SelectionSet, v ToggleTaskLabelPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNToggleTaskLabelPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐToggleTaskLabelPayload(ctx context.Context, sel ast.SelectionSet, v ToggleTaskLabelPayload) graphql.Marshaler {
 	return ec._ToggleTaskLabelPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNToggleTaskLabelPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐToggleTaskLabelPayload(ctx context.Context, sel ast.SelectionSet, v *ToggleTaskLabelPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNToggleTaskLabelPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐToggleTaskLabelPayload(ctx context.Context, sel ast.SelectionSet, v *ToggleTaskLabelPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16789,27 +16708,27 @@ func (ec *executionContext) marshalNUUID2ᚕgithubᚗcomᚋgoogleᚋuuidᚐUUID�
 	return ret
 }
 
-func (ec *executionContext) unmarshalNUpdateProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectLabel(ctx context.Context, v interface{}) (UpdateProjectLabel, error) {
+func (ec *executionContext) unmarshalNUpdateProjectLabel2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectLabel(ctx context.Context, v interface{}) (UpdateProjectLabel, error) {
 	return ec.unmarshalInputUpdateProjectLabel(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateProjectLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectLabelColor(ctx context.Context, v interface{}) (UpdateProjectLabelColor, error) {
+func (ec *executionContext) unmarshalNUpdateProjectLabelColor2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectLabelColor(ctx context.Context, v interface{}) (UpdateProjectLabelColor, error) {
 	return ec.unmarshalInputUpdateProjectLabelColor(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateProjectLabelName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectLabelName(ctx context.Context, v interface{}) (UpdateProjectLabelName, error) {
+func (ec *executionContext) unmarshalNUpdateProjectLabelName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectLabelName(ctx context.Context, v interface{}) (UpdateProjectLabelName, error) {
 	return ec.unmarshalInputUpdateProjectLabelName(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateProjectMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectMemberRole(ctx context.Context, v interface{}) (UpdateProjectMemberRole, error) {
+func (ec *executionContext) unmarshalNUpdateProjectMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectMemberRole(ctx context.Context, v interface{}) (UpdateProjectMemberRole, error) {
 	return ec.unmarshalInputUpdateProjectMemberRole(ctx, v)
 }
 
-func (ec *executionContext) marshalNUpdateProjectMemberRolePayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v UpdateProjectMemberRolePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateProjectMemberRolePayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v UpdateProjectMemberRolePayload) graphql.Marshaler {
 	return ec._UpdateProjectMemberRolePayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateProjectMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v *UpdateProjectMemberRolePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateProjectMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v *UpdateProjectMemberRolePayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16819,15 +16738,15 @@ func (ec *executionContext) marshalNUpdateProjectMemberRolePayload2ᚖgithubᚗc
 	return ec._UpdateProjectMemberRolePayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskChecklistItemLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocation(ctx context.Context, v interface{}) (UpdateTaskChecklistItemLocation, error) {
+func (ec *executionContext) unmarshalNUpdateTaskChecklistItemLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocation(ctx context.Context, v interface{}) (UpdateTaskChecklistItemLocation, error) {
 	return ec.unmarshalInputUpdateTaskChecklistItemLocation(ctx, v)
 }
 
-func (ec *executionContext) marshalNUpdateTaskChecklistItemLocationPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocationPayload(ctx context.Context, sel ast.SelectionSet, v UpdateTaskChecklistItemLocationPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTaskChecklistItemLocationPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocationPayload(ctx context.Context, sel ast.SelectionSet, v UpdateTaskChecklistItemLocationPayload) graphql.Marshaler {
 	return ec._UpdateTaskChecklistItemLocationPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateTaskChecklistItemLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocationPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTaskChecklistItemLocationPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTaskChecklistItemLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistItemLocationPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTaskChecklistItemLocationPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16837,19 +16756,19 @@ func (ec *executionContext) marshalNUpdateTaskChecklistItemLocationPayload2ᚖgi
 	return ec._UpdateTaskChecklistItemLocationPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskChecklistItemName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistItemName(ctx context.Context, v interface{}) (UpdateTaskChecklistItemName, error) {
+func (ec *executionContext) unmarshalNUpdateTaskChecklistItemName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistItemName(ctx context.Context, v interface{}) (UpdateTaskChecklistItemName, error) {
 	return ec.unmarshalInputUpdateTaskChecklistItemName(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskChecklistLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistLocation(ctx context.Context, v interface{}) (UpdateTaskChecklistLocation, error) {
+func (ec *executionContext) unmarshalNUpdateTaskChecklistLocation2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistLocation(ctx context.Context, v interface{}) (UpdateTaskChecklistLocation, error) {
 	return ec.unmarshalInputUpdateTaskChecklistLocation(ctx, v)
 }
 
-func (ec *executionContext) marshalNUpdateTaskChecklistLocationPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistLocationPayload(ctx context.Context, sel ast.SelectionSet, v UpdateTaskChecklistLocationPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTaskChecklistLocationPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistLocationPayload(ctx context.Context, sel ast.SelectionSet, v UpdateTaskChecklistLocationPayload) graphql.Marshaler {
 	return ec._UpdateTaskChecklistLocationPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateTaskChecklistLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistLocationPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTaskChecklistLocationPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTaskChecklistLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistLocationPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTaskChecklistLocationPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16859,27 +16778,27 @@ func (ec *executionContext) marshalNUpdateTaskChecklistLocationPayload2ᚖgithub
 	return ec._UpdateTaskChecklistLocationPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskChecklistName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskChecklistName(ctx context.Context, v interface{}) (UpdateTaskChecklistName, error) {
+func (ec *executionContext) unmarshalNUpdateTaskChecklistName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskChecklistName(ctx context.Context, v interface{}) (UpdateTaskChecklistName, error) {
 	return ec.unmarshalInputUpdateTaskChecklistName(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskDescriptionInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskDescriptionInput(ctx context.Context, v interface{}) (UpdateTaskDescriptionInput, error) {
+func (ec *executionContext) unmarshalNUpdateTaskDescriptionInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskDescriptionInput(ctx context.Context, v interface{}) (UpdateTaskDescriptionInput, error) {
 	return ec.unmarshalInputUpdateTaskDescriptionInput(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskDueDate2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskDueDate(ctx context.Context, v interface{}) (UpdateTaskDueDate, error) {
+func (ec *executionContext) unmarshalNUpdateTaskDueDate2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskDueDate(ctx context.Context, v interface{}) (UpdateTaskDueDate, error) {
 	return ec.unmarshalInputUpdateTaskDueDate(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskGroupName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskGroupName(ctx context.Context, v interface{}) (UpdateTaskGroupName, error) {
+func (ec *executionContext) unmarshalNUpdateTaskGroupName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskGroupName(ctx context.Context, v interface{}) (UpdateTaskGroupName, error) {
 	return ec.unmarshalInputUpdateTaskGroupName(ctx, v)
 }
 
-func (ec *executionContext) marshalNUpdateTaskLocationPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskLocationPayload(ctx context.Context, sel ast.SelectionSet, v UpdateTaskLocationPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTaskLocationPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskLocationPayload(ctx context.Context, sel ast.SelectionSet, v UpdateTaskLocationPayload) graphql.Marshaler {
 	return ec._UpdateTaskLocationPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateTaskLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskLocationPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTaskLocationPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTaskLocationPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskLocationPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTaskLocationPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16889,19 +16808,19 @@ func (ec *executionContext) marshalNUpdateTaskLocationPayload2ᚖgithubᚗcomᚋ
 	return ec._UpdateTaskLocationPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTaskName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTaskName(ctx context.Context, v interface{}) (UpdateTaskName, error) {
+func (ec *executionContext) unmarshalNUpdateTaskName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTaskName(ctx context.Context, v interface{}) (UpdateTaskName, error) {
 	return ec.unmarshalInputUpdateTaskName(ctx, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateTeamMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTeamMemberRole(ctx context.Context, v interface{}) (UpdateTeamMemberRole, error) {
+func (ec *executionContext) unmarshalNUpdateTeamMemberRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTeamMemberRole(ctx context.Context, v interface{}) (UpdateTeamMemberRole, error) {
 	return ec.unmarshalInputUpdateTeamMemberRole(ctx, v)
 }
 
-func (ec *executionContext) marshalNUpdateTeamMemberRolePayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTeamMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v UpdateTeamMemberRolePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTeamMemberRolePayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTeamMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v UpdateTeamMemberRolePayload) graphql.Marshaler {
 	return ec._UpdateTeamMemberRolePayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateTeamMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateTeamMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTeamMemberRolePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateTeamMemberRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateTeamMemberRolePayload(ctx context.Context, sel ast.SelectionSet, v *UpdateTeamMemberRolePayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16911,15 +16830,15 @@ func (ec *executionContext) marshalNUpdateTeamMemberRolePayload2ᚖgithubᚗcom�
 	return ec._UpdateTeamMemberRolePayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateUserPassword2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserPassword(ctx context.Context, v interface{}) (UpdateUserPassword, error) {
+func (ec *executionContext) unmarshalNUpdateUserPassword2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserPassword(ctx context.Context, v interface{}) (UpdateUserPassword, error) {
 	return ec.unmarshalInputUpdateUserPassword(ctx, v)
 }
 
-func (ec *executionContext) marshalNUpdateUserPasswordPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserPasswordPayload(ctx context.Context, sel ast.SelectionSet, v UpdateUserPasswordPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateUserPasswordPayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserPasswordPayload(ctx context.Context, sel ast.SelectionSet, v UpdateUserPasswordPayload) graphql.Marshaler {
 	return ec._UpdateUserPasswordPayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateUserPasswordPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserPasswordPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateUserPasswordPayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateUserPasswordPayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserPasswordPayload(ctx context.Context, sel ast.SelectionSet, v *UpdateUserPasswordPayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16929,15 +16848,15 @@ func (ec *executionContext) marshalNUpdateUserPasswordPayload2ᚖgithubᚗcomᚋ
 	return ec._UpdateUserPasswordPayload(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNUpdateUserRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserRole(ctx context.Context, v interface{}) (UpdateUserRole, error) {
+func (ec *executionContext) unmarshalNUpdateUserRole2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserRole(ctx context.Context, v interface{}) (UpdateUserRole, error) {
 	return ec.unmarshalInputUpdateUserRole(ctx, v)
 }
 
-func (ec *executionContext) marshalNUpdateUserRolePayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserRolePayload(ctx context.Context, sel ast.SelectionSet, v UpdateUserRolePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateUserRolePayload2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserRolePayload(ctx context.Context, sel ast.SelectionSet, v UpdateUserRolePayload) graphql.Marshaler {
 	return ec._UpdateUserRolePayload(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUpdateUserRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateUserRolePayload(ctx context.Context, sel ast.SelectionSet, v *UpdateUserRolePayload) graphql.Marshaler {
+func (ec *executionContext) marshalNUpdateUserRolePayload2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateUserRolePayload(ctx context.Context, sel ast.SelectionSet, v *UpdateUserRolePayload) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -16947,11 +16866,11 @@ func (ec *executionContext) marshalNUpdateUserRolePayload2ᚖgithubᚗcomᚋjord
 	return ec._UpdateUserRolePayload(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx context.Context, sel ast.SelectionSet, v db.UserAccount) graphql.Marshaler {
+func (ec *executionContext) marshalNUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx context.Context, sel ast.SelectionSet, v db.UserAccount) graphql.Marshaler {
 	return ec._UserAccount(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNUserAccount2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccountᚄ(ctx context.Context, sel ast.SelectionSet, v []db.UserAccount) graphql.Marshaler {
+func (ec *executionContext) marshalNUserAccount2ᚕgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccountᚄ(ctx context.Context, sel ast.SelectionSet, v []db.UserAccount) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -16975,7 +16894,7 @@ func (ec *executionContext) marshalNUserAccount2ᚕgithubᚗcomᚋjordanknottᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx, sel, v[i])
+			ret[i] = ec.marshalNUserAccount2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -16988,7 +16907,7 @@ func (ec *executionContext) marshalNUserAccount2ᚕgithubᚗcomᚋjordanknottᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋdbᚐUserAccount(ctx context.Context, sel ast.SelectionSet, v *db.UserAccount) graphql.Marshaler {
+func (ec *executionContext) marshalNUserAccount2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋdbᚐUserAccount(ctx context.Context, sel ast.SelectionSet, v *db.UserAccount) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "must not be null")
@@ -17224,27 +17143,27 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
-func (ec *executionContext) unmarshalOAddTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAddTaskLabelInput(ctx context.Context, v interface{}) (AddTaskLabelInput, error) {
+func (ec *executionContext) unmarshalOAddTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAddTaskLabelInput(ctx context.Context, v interface{}) (AddTaskLabelInput, error) {
 	return ec.unmarshalInputAddTaskLabelInput(ctx, v)
 }
 
-func (ec *executionContext) unmarshalOAddTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAddTaskLabelInput(ctx context.Context, v interface{}) (*AddTaskLabelInput, error) {
+func (ec *executionContext) unmarshalOAddTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAddTaskLabelInput(ctx context.Context, v interface{}) (*AddTaskLabelInput, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalOAddTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAddTaskLabelInput(ctx, v)
+	res, err := ec.unmarshalOAddTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAddTaskLabelInput(ctx, v)
 	return &res, err
 }
 
-func (ec *executionContext) unmarshalOAssignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAssignTaskInput(ctx context.Context, v interface{}) (AssignTaskInput, error) {
+func (ec *executionContext) unmarshalOAssignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAssignTaskInput(ctx context.Context, v interface{}) (AssignTaskInput, error) {
 	return ec.unmarshalInputAssignTaskInput(ctx, v)
 }
 
-func (ec *executionContext) unmarshalOAssignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAssignTaskInput(ctx context.Context, v interface{}) (*AssignTaskInput, error) {
+func (ec *executionContext) unmarshalOAssignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAssignTaskInput(ctx context.Context, v interface{}) (*AssignTaskInput, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalOAssignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐAssignTaskInput(ctx, v)
+	res, err := ec.unmarshalOAssignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐAssignTaskInput(ctx, v)
 	return &res, err
 }
 
@@ -17271,38 +17190,38 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return ec.marshalOBoolean2bool(ctx, sel, *v)
 }
 
-func (ec *executionContext) marshalOChecklistBadge2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐChecklistBadge(ctx context.Context, sel ast.SelectionSet, v ChecklistBadge) graphql.Marshaler {
+func (ec *executionContext) marshalOChecklistBadge2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐChecklistBadge(ctx context.Context, sel ast.SelectionSet, v ChecklistBadge) graphql.Marshaler {
 	return ec._ChecklistBadge(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalOChecklistBadge2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐChecklistBadge(ctx context.Context, sel ast.SelectionSet, v *ChecklistBadge) graphql.Marshaler {
+func (ec *executionContext) marshalOChecklistBadge2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐChecklistBadge(ctx context.Context, sel ast.SelectionSet, v *ChecklistBadge) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ChecklistBadge(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalOProjectsFilter2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProjectsFilter(ctx context.Context, v interface{}) (ProjectsFilter, error) {
+func (ec *executionContext) unmarshalOProjectsFilter2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectsFilter(ctx context.Context, v interface{}) (ProjectsFilter, error) {
 	return ec.unmarshalInputProjectsFilter(ctx, v)
 }
 
-func (ec *executionContext) unmarshalOProjectsFilter2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProjectsFilter(ctx context.Context, v interface{}) (*ProjectsFilter, error) {
+func (ec *executionContext) unmarshalOProjectsFilter2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectsFilter(ctx context.Context, v interface{}) (*ProjectsFilter, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalOProjectsFilter2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐProjectsFilter(ctx, v)
+	res, err := ec.unmarshalOProjectsFilter2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐProjectsFilter(ctx, v)
 	return &res, err
 }
 
-func (ec *executionContext) unmarshalORemoveTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx context.Context, v interface{}) (RemoveTaskLabelInput, error) {
+func (ec *executionContext) unmarshalORemoveTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx context.Context, v interface{}) (RemoveTaskLabelInput, error) {
 	return ec.unmarshalInputRemoveTaskLabelInput(ctx, v)
 }
 
-func (ec *executionContext) unmarshalORemoveTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx context.Context, v interface{}) (*RemoveTaskLabelInput, error) {
+func (ec *executionContext) unmarshalORemoveTaskLabelInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx context.Context, v interface{}) (*RemoveTaskLabelInput, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalORemoveTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx, v)
+	res, err := ec.unmarshalORemoveTaskLabelInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐRemoveTaskLabelInput(ctx, v)
 	return &res, err
 }
 
@@ -17375,27 +17294,27 @@ func (ec *executionContext) marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(
 	return ec.marshalOUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, sel, *v)
 }
 
-func (ec *executionContext) unmarshalOUnassignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUnassignTaskInput(ctx context.Context, v interface{}) (UnassignTaskInput, error) {
+func (ec *executionContext) unmarshalOUnassignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUnassignTaskInput(ctx context.Context, v interface{}) (UnassignTaskInput, error) {
 	return ec.unmarshalInputUnassignTaskInput(ctx, v)
 }
 
-func (ec *executionContext) unmarshalOUnassignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUnassignTaskInput(ctx context.Context, v interface{}) (*UnassignTaskInput, error) {
+func (ec *executionContext) unmarshalOUnassignTaskInput2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUnassignTaskInput(ctx context.Context, v interface{}) (*UnassignTaskInput, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalOUnassignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUnassignTaskInput(ctx, v)
+	res, err := ec.unmarshalOUnassignTaskInput2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUnassignTaskInput(ctx, v)
 	return &res, err
 }
 
-func (ec *executionContext) unmarshalOUpdateProjectName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectName(ctx context.Context, v interface{}) (UpdateProjectName, error) {
+func (ec *executionContext) unmarshalOUpdateProjectName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectName(ctx context.Context, v interface{}) (UpdateProjectName, error) {
 	return ec.unmarshalInputUpdateProjectName(ctx, v)
 }
 
-func (ec *executionContext) unmarshalOUpdateProjectName2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectName(ctx context.Context, v interface{}) (*UpdateProjectName, error) {
+func (ec *executionContext) unmarshalOUpdateProjectName2ᚖgithubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectName(ctx context.Context, v interface{}) (*UpdateProjectName, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalOUpdateProjectName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋapiᚋinternalᚋgraphᚐUpdateProjectName(ctx, v)
+	res, err := ec.unmarshalOUpdateProjectName2githubᚗcomᚋjordanknottᚋprojectᚑcitadelᚋinternalᚋgraphᚐUpdateProjectName(ctx, v)
 	return &res, err
 }
 

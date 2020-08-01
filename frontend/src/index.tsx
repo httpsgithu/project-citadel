@@ -6,12 +6,14 @@ import { ApolloProvider } from '@apollo/react-hooks';
 import { ApolloClient } from 'apollo-client';
 import { HttpLink } from 'apollo-link-http';
 import { onError } from 'apollo-link-error';
+import { enableMapSet } from 'immer';
 import { ApolloLink, Observable, fromPromise } from 'apollo-link';
 import { getAccessToken, getNewToken, setAccessToken } from 'shared/utils/accessToken';
 import cache from './App/cache';
 import App from './App';
 
 // https://able.bio/AnasT/apollo-graphql-async-access-token-refresh--470t1c8
+enableMapSet();
 
 let forward$;
 let isRefreshing = false;

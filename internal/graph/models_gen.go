@@ -171,6 +171,12 @@ type LogoutUser struct {
 	UserID string `json:"userID"`
 }
 
+type MePayload struct {
+	User         *db.UserAccount `json:"user"`
+	TeamRoles    []TeamRole      `json:"teamRoles"`
+	ProjectRoles []ProjectRole   `json:"projectRoles"`
+}
+
 type Member struct {
 	ID          uuid.UUID    `json:"id"`
 	Role        *db.Role     `json:"role"`
@@ -255,23 +261,17 @@ type ProfileIcon struct {
 	BgColor  *string `json:"bgColor"`
 }
 
+type ProjectRole struct {
+	ProjectID uuid.UUID `json:"projectID"`
+	RoleCode  RoleCode  `json:"roleCode"`
+}
+
 type ProjectsFilter struct {
 	TeamID *uuid.UUID `json:"teamID"`
 }
 
 type RemoveTaskLabelInput struct {
 	TaskLabelID uuid.UUID `json:"taskLabelID"`
-}
-
-type SetProjectOwner struct {
-	ProjectID uuid.UUID `json:"projectID"`
-	OwnerID   uuid.UUID `json:"ownerID"`
-}
-
-type SetProjectOwnerPayload struct {
-	Ok        bool    `json:"ok"`
-	PrevOwner *Member `json:"prevOwner"`
-	NewOwner  *Member `json:"newOwner"`
 }
 
 type SetTaskChecklistItemComplete struct {
@@ -284,19 +284,13 @@ type SetTaskComplete struct {
 	Complete bool      `json:"complete"`
 }
 
-type SetTeamOwner struct {
-	TeamID uuid.UUID `json:"teamID"`
-	UserID uuid.UUID `json:"userID"`
-}
-
-type SetTeamOwnerPayload struct {
-	Ok        bool    `json:"ok"`
-	PrevOwner *Member `json:"prevOwner"`
-	NewOwner  *Member `json:"newOwner"`
-}
-
 type TaskBadges struct {
 	Checklist *ChecklistBadge `json:"checklist"`
+}
+
+type TeamRole struct {
+	TeamID   uuid.UUID `json:"teamID"`
+	RoleCode RoleCode  `json:"roleCode"`
 }
 
 type ToggleTaskLabelInput struct {
@@ -409,8 +403,9 @@ type UpdateTeamMemberRole struct {
 }
 
 type UpdateTeamMemberRolePayload struct {
-	Ok     bool    `json:"ok"`
-	Member *Member `json:"member"`
+	Ok     bool      `json:"ok"`
+	TeamID uuid.UUID `json:"teamID"`
+	Member *Member   `json:"member"`
 }
 
 type UpdateUserPassword struct {

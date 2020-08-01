@@ -8,13 +8,13 @@ import { getAccessToken, setAccessToken } from 'shared/utils/accessToken';
 import updateApolloCache from 'shared/utils/cache';
 import produce from 'immer';
 import { useApolloClient } from '@apollo/react-hooks';
-import UserIDContext from 'App/context';
+import UserContext from 'App/context';
 import jwtDecode from 'jwt-decode';
 
 const Install = () => {
   const client = useApolloClient();
   const history = useHistory();
-  const { setUserID } = useContext(UserIDContext);
+  const { setUser } = useContext(UserContext);
   useEffect(() => {
     fetch('/auth/refresh_token', {
       method: 'POST',
@@ -65,7 +65,7 @@ const Install = () => {
                     const response: RefreshTokenResponse = await x.data;
                     const { accessToken, isInstalled } = response;
                     const claims: JWTToken = jwtDecode(accessToken);
-                    setUserID(claims.userId);
+                    setUser({ id: claims.userId, orgRole: claims.orgRole });
                     setAccessToken(accessToken);
                     if (!isInstalled) {
                       history.replace('/install');

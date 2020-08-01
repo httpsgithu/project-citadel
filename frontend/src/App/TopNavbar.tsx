@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 import DropdownMenu, { ProfileMenu } from 'shared/components/DropdownMenu';
 import ProjectSettings, { DeleteConfirm, DELETE_INFO } from 'shared/components/ProjectSettings';
 import { useHistory } from 'react-router';
-import UserIDContext from 'App/context';
+import { UserContext } from 'App/context';
 import {
   RoleCode,
   useMeQuery,
@@ -250,10 +250,27 @@ const GlobalTopNavbar: React.FC<GlobalTopNavbarProps> = ({
   nameOnly,
 }) => {
   console.log(popupContent);
-  const { loading, data } = useMeQuery();
+  const { user, setUser } = useContext(UserContext);
+  const { loading, data } = useMeQuery({
+    onCompleted: data => {
+      if (user) {
+        setUser({
+          id: user.id,
+          orgRole: user.orgRole,
+          teamRoles: data.me.teamRoles.reduce((map, obj) => {
+            map.set(obj.teamID, obj.roleCode);
+            return map;
+          }, new Map<string, string>()),
+          projectRoles: data.me.projectRoles.reduce((map, obj) => {
+            map.set(obj.projectID, obj.roleCode);
+            return map;
+          }, new Map<string, string>()),
+        });
+      }
+    },
+  });
   const { showPopup, hidePopup, setTab } = usePopup();
   const history = useHistory();
-  const { userID, setUserID } = useContext(UserIDContext);
   const onLogout = () => {
     fetch('/auth/logout', {
       method: 'POST',
@@ -262,7 +279,7 @@ const GlobalTopNavbar: React.FC<GlobalTopNavbarProps> = ({
       const { status } = x;
       if (status === 200) {
         history.replace('/login');
-        setUserID(null);
+        setUser(null);
         hidePopup();
       }
     });
@@ -295,7 +312,7 @@ const GlobalTopNavbar: React.FC<GlobalTopNavbarProps> = ({
     }
   };
 
-  if (!userID) {
+  if (!user) {
     return null;
   }
   return (
@@ -312,7 +329,7 @@ const GlobalTopNavbar: React.FC<GlobalTopNavbarProps> = ({
           );
         }}
         currentTab={currentTab}
-        user={data ? data.me : null}
+        user={data ? data.me.user : null}
         onInviteUser={onInviteUser}
         onChangeRole={onChangeRole}
         onChangeProjectOwner={onChangeProjectOwner}

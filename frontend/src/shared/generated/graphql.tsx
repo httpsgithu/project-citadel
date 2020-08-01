@@ -125,7 +125,6 @@ export type Project = {
   createdAt: Scalars['Time'];
   name: Scalars['String'];
   team: Team;
-  owner: Member;
   taskGroups: Array<TaskGroup>;
   members: Array<Member>;
   labels: Array<ProjectLabel>;
@@ -204,7 +203,7 @@ export type Query = {
   teams: Array<Team>;
   labelColors: Array<LabelColor>;
   taskGroups: Array<TaskGroup>;
-  me: UserAccount;
+  me: MePayload;
 };
 
 
@@ -260,10 +259,8 @@ export type Mutation = {
   deleteUserAccount: DeleteUserAccountPayload;
   logoutUser: Scalars['Boolean'];
   removeTaskLabel: Task;
-  setProjectOwner: SetProjectOwnerPayload;
   setTaskChecklistItemComplete: TaskChecklistItem;
   setTaskComplete: Task;
-  setTeamOwner: SetTeamOwnerPayload;
   toggleTaskLabel: ToggleTaskLabelPayload;
   unassignTask: Task;
   updateProjectLabel: ProjectLabel;
@@ -412,11 +409,6 @@ export type MutationRemoveTaskLabelArgs = {
 };
 
 
-export type MutationSetProjectOwnerArgs = {
-  input: SetProjectOwner;
-};
-
-
 export type MutationSetTaskChecklistItemCompleteArgs = {
   input: SetTaskChecklistItemComplete;
 };
@@ -424,11 +416,6 @@ export type MutationSetTaskChecklistItemCompleteArgs = {
 
 export type MutationSetTaskCompleteArgs = {
   input: SetTaskComplete;
-};
-
-
-export type MutationSetTeamOwnerArgs = {
-  input: SetTeamOwner;
 };
 
 
@@ -531,6 +518,25 @@ export type MutationUpdateUserRoleArgs = {
   input: UpdateUserRole;
 };
 
+export type TeamRole = {
+   __typename?: 'TeamRole';
+  teamID: Scalars['UUID'];
+  roleCode: RoleCode;
+};
+
+export type ProjectRole = {
+   __typename?: 'ProjectRole';
+  projectID: Scalars['UUID'];
+  roleCode: RoleCode;
+};
+
+export type MePayload = {
+   __typename?: 'MePayload';
+  user: UserAccount;
+  teamRoles: Array<TeamRole>;
+  projectRoles: Array<ProjectRole>;
+};
+
 export type ProjectsFilter = {
   teamID?: Maybe<Scalars['UUID']>;
 };
@@ -631,18 +637,6 @@ export type UpdateProjectMemberRolePayload = {
    __typename?: 'UpdateProjectMemberRolePayload';
   ok: Scalars['Boolean'];
   member: Member;
-};
-
-export type SetProjectOwner = {
-  projectID: Scalars['UUID'];
-  ownerID: Scalars['UUID'];
-};
-
-export type SetProjectOwnerPayload = {
-   __typename?: 'SetProjectOwnerPayload';
-  ok: Scalars['Boolean'];
-  prevOwner: Member;
-  newOwner: Member;
 };
 
 export type NewTask = {
@@ -868,19 +862,8 @@ export type UpdateTeamMemberRole = {
 export type UpdateTeamMemberRolePayload = {
    __typename?: 'UpdateTeamMemberRolePayload';
   ok: Scalars['Boolean'];
-  member: Member;
-};
-
-export type SetTeamOwner = {
   teamID: Scalars['UUID'];
-  userID: Scalars['UUID'];
-};
-
-export type SetTeamOwnerPayload = {
-   __typename?: 'SetTeamOwnerPayload';
-  ok: Scalars['Boolean'];
-  prevOwner: Member;
-  newOwner: Member;
+  member: Member;
 };
 
 export type UpdateUserPassword = {
@@ -1242,12 +1225,21 @@ export type MeQueryVariables = {};
 export type MeQuery = (
   { __typename?: 'Query' }
   & { me: (
-    { __typename?: 'UserAccount' }
-    & Pick<UserAccount, 'id' | 'fullName'>
-    & { profileIcon: (
-      { __typename?: 'ProfileIcon' }
-      & Pick<ProfileIcon, 'initials' | 'bgColor' | 'url'>
-    ) }
+    { __typename?: 'MePayload' }
+    & { user: (
+      { __typename?: 'UserAccount' }
+      & Pick<UserAccount, 'id' | 'fullName'>
+      & { profileIcon: (
+        { __typename?: 'ProfileIcon' }
+        & Pick<ProfileIcon, 'initials' | 'bgColor' | 'url'>
+      ) }
+    ), teamRoles: Array<(
+      { __typename?: 'TeamRole' }
+      & Pick<TeamRole, 'teamID' | 'roleCode'>
+    )>, projectRoles: Array<(
+      { __typename?: 'ProjectRole' }
+      & Pick<ProjectRole, 'projectID' | 'roleCode'>
+    )> }
   ) }
 );
 
@@ -1307,35 +1299,6 @@ export type DeleteProjectMemberMutation = (
     & { member: (
       { __typename?: 'Member' }
       & Pick<Member, 'id'>
-    ) }
-  ) }
-);
-
-export type SetProjectOwnerMutationVariables = {
-  projectID: Scalars['UUID'];
-  ownerID: Scalars['UUID'];
-};
-
-
-export type SetProjectOwnerMutation = (
-  { __typename?: 'Mutation' }
-  & { setProjectOwner: (
-    { __typename?: 'SetProjectOwnerPayload' }
-    & Pick<SetProjectOwnerPayload, 'ok'>
-    & { newOwner: (
-      { __typename?: 'Member' }
-      & Pick<Member, 'id'>
-      & { role: (
-        { __typename?: 'Role' }
-        & Pick<Role, 'code' | 'name'>
-      ) }
-    ), prevOwner: (
-      { __typename?: 'Member' }
-      & Pick<Member, 'id'>
-      & { role: (
-        { __typename?: 'Role' }
-        & Pick<Role, 'code' | 'name'>
-      ) }
     ) }
   ) }
 );
@@ -1717,6 +1680,7 @@ export type UpdateTeamMemberRoleMutation = (
   { __typename?: 'Mutation' }
   & { updateTeamMemberRole: (
     { __typename?: 'UpdateTeamMemberRolePayload' }
+    & Pick<UpdateTeamMemberRolePayload, 'teamID'>
     & { member: (
       { __typename?: 'Member' }
       & Pick<Member, 'id'>
@@ -2585,12 +2549,22 @@ export type GetProjectsQueryResult = ApolloReactCommon.QueryResult<GetProjectsQu
 export const MeDocument = gql`
     query me {
   me {
-    id
-    fullName
-    profileIcon {
-      initials
-      bgColor
-      url
+    user {
+      id
+      fullName
+      profileIcon {
+        initials
+        bgColor
+        url
+      }
+    }
+    teamRoles {
+      teamID
+      roleCode
+    }
+    projectRoles {
+      projectID
+      roleCode
     }
   }
 }
@@ -2739,53 +2713,6 @@ export function useDeleteProjectMemberMutation(baseOptions?: ApolloReactHooks.Mu
 export type DeleteProjectMemberMutationHookResult = ReturnType<typeof useDeleteProjectMemberMutation>;
 export type DeleteProjectMemberMutationResult = ApolloReactCommon.MutationResult<DeleteProjectMemberMutation>;
 export type DeleteProjectMemberMutationOptions = ApolloReactCommon.BaseMutationOptions<DeleteProjectMemberMutation, DeleteProjectMemberMutationVariables>;
-export const SetProjectOwnerDocument = gql`
-    mutation setProjectOwner($projectID: UUID!, $ownerID: UUID!) {
-  setProjectOwner(input: {projectID: $projectID, ownerID: $ownerID}) {
-    ok
-    newOwner {
-      id
-      role {
-        code
-        name
-      }
-    }
-    prevOwner {
-      id
-      role {
-        code
-        name
-      }
-    }
-  }
-}
-    `;
-export type SetProjectOwnerMutationFn = ApolloReactCommon.MutationFunction<SetProjectOwnerMutation, SetProjectOwnerMutationVariables>;
-
-/**
- * __useSetProjectOwnerMutation__
- *
- * To run a mutation, you first call `useSetProjectOwnerMutation` within a React component and pass it any options that fit your needs.
- * When your component renders, `useSetProjectOwnerMutation` returns a tuple that includes:
- * - A mutate function that you can call at any time to execute the mutation
- * - An object with fields that represent the current status of the mutation's execution
- *
- * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
- *
- * @example
- * const [setProjectOwnerMutation, { data, loading, error }] = useSetProjectOwnerMutation({
- *   variables: {
- *      projectID: // value for 'projectID'
- *      ownerID: // value for 'ownerID'
- *   },
- * });
- */
-export function useSetProjectOwnerMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<SetProjectOwnerMutation, SetProjectOwnerMutationVariables>) {
-        return ApolloReactHooks.useMutation<SetProjectOwnerMutation, SetProjectOwnerMutationVariables>(SetProjectOwnerDocument, baseOptions);
-      }
-export type SetProjectOwnerMutationHookResult = ReturnType<typeof useSetProjectOwnerMutation>;
-export type SetProjectOwnerMutationResult = ApolloReactCommon.MutationResult<SetProjectOwnerMutation>;
-export type SetProjectOwnerMutationOptions = ApolloReactCommon.BaseMutationOptions<SetProjectOwnerMutation, SetProjectOwnerMutationVariables>;
 export const UpdateProjectMemberRoleDocument = gql`
     mutation updateProjectMemberRole($projectID: UUID!, $userID: UUID!, $roleCode: RoleCode!) {
   updateProjectMemberRole(input: {projectID: $projectID, userID: $userID, roleCode: $roleCode}) {
@@ -3542,6 +3469,7 @@ export const UpdateTeamMemberRoleDocument = gql`
         name
       }
     }
+    teamID
   }
 }
     `;

@@ -12,9 +12,8 @@ import {
 
 import ProjectGridItem, { AddProjectItem } from 'shared/components/ProjectGridItem';
 import { Link } from 'react-router-dom';
-import Navbar from 'App/Navbar';
 import NewProject from 'shared/components/NewProject';
-import UserIDContext from 'App/context';
+import UserContext from 'App/context';
 import Button from 'shared/components/Button';
 import { usePopup, Popup } from 'shared/components/PopupMenu';
 import { useForm } from 'react-hook-form';
@@ -242,7 +241,7 @@ const Projects = () => {
   });
 
   const [showNewProject, setShowNewProject] = useState<ShowNewProject>({ open: false, initialTeamID: null });
-  const { userID, setUserID } = useContext(UserIDContext);
+  const { user, setUser } = useContext(UserContext);
   const [createTeam] = useCreateTeamMutation({
     update: (client, createData) => {
       updateApolloCache<GetProjectsQuery>(client, GetProjectsDocument, cache =>
@@ -261,47 +260,62 @@ const Projects = () => {
   }
 
   const colors = ['#e362e3', '#7a6ff0', '#37c5ab', '#aa62e3', '#e8384f'];
-  if (data) {
+  if (data && user) {
     const { projects, teams, organizations } = data;
     const organizationID = organizations[0].id ?? null;
-    const projectTeams = teams.map(team => {
-      return {
-        id: team.id,
-        name: team.name,
-        projects: projects.filter(project => project.team.id === team.id),
-      };
-    });
+    const projectTeams = teams
+      .sort((a, b) => {
+        const textA = a.name.toUpperCase();
+        const textB = b.name.toUpperCase();
+        return textA < textB ? -1 : textA > textB ? 1 : 0;
+      })
+      .map(team => {
+        return {
+          id: team.id,
+          name: team.name,
+          projects: projects
+            .filter(project => project.team.id === team.id)
+            .sort((a, b) => {
+              const textA = a.name.toUpperCase();
+              const textB = b.name.toUpperCase();
+              return textA < textB ? -1 : textA > textB ? 1 : 0;
+            }),
+        };
+      });
+    console.log(projectTeams);
     return (
       <>
         <GlobalTopNavbar onSaveProjectName={() => {}} projectID={null} name={null} />
         <Wrapper>
           <ProjectsContainer>
-            <AddTeamButton
-              variant="outline"
-              onClick={$target => {
-                showPopup(
-                  $target,
-                  <Popup
-                    title="Create team"
-                    tab={0}
-                    onClose={() => {
-                      hidePopup();
-                    }}
-                  >
-                    <CreateTeamForm
-                      onCreateTeam={teamName => {
-                        if (organizationID) {
-                          createTeam({ variables: { name: teamName, organizationID } });
-                          hidePopup();
-                        }
+            {user.orgRole === 'admin' && (
+              <AddTeamButton
+                variant="outline"
+                onClick={$target => {
+                  showPopup(
+                    $target,
+                    <Popup
+                      title="Create team"
+                      tab={0}
+                      onClose={() => {
+                        hidePopup();
                       }}
-                    />
-                  </Popup>,
-                );
-              }}
-            >
-              Add Team
-            </AddTeamButton>
+                    >
+                      <CreateTeamForm
+                        onCreateTeam={teamName => {
+                          if (organizationID) {
+                            createTeam({ variables: { name: teamName, organizationID } });
+                            hidePopup();
+                          }
+                        }}
+                      />
+                    </Popup>,
+                  );
+                }}
+              >
+                Add Team
+              </AddTeamButton>
+            )}
             {projectTeams.length === 0 && (
               <EmptyStateContent>
                 <EmptyState width={425} height={425} />
@@ -383,8 +397,8 @@ const Projects = () => {
               <NewProject
                 initialTeamID={showNewProject.initialTeamID}
                 onCreateProject={(name, teamID) => {
-                  if (userID) {
-                    createProject({ variables: { teamID, name, userID } });
+                  if (user) {
+                    createProject({ variables: { teamID, name, userID: user.id } });
                     setShowNewProject({ open: false, initialTeamID: null });
                   }
                 }}

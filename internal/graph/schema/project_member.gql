@@ -2,7 +2,6 @@ extend type Mutation {
   createProjectMember(input: CreateProjectMember!): CreateProjectMemberPayload!
   deleteProjectMember(input: DeleteProjectMember!): DeleteProjectMemberPayload!
   updateProjectMemberRole(input: UpdateProjectMemberRole!): UpdateProjectMemberRolePayload!
-  setProjectOwner(input: SetProjectOwner!): SetProjectOwnerPayload!
 }
 
 input CreateProjectMember {
@@ -35,14 +34,4 @@ input UpdateProjectMemberRole {
 type UpdateProjectMemberRolePayload {
   ok: Boolean!
   member: Member!
-}
-
-input SetProjectOwner {
-  projectID: UUID!
-  ownerID: UUID!
-}
-type SetProjectOwnerPayload {
-  ok: Boolean!
-  prevOwner: Member!
-  newOwner: Member!
 }

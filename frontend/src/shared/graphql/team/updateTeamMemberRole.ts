@@ -10,6 +10,7 @@ export const UPDATE_TEAM_MEMBER_ROLE_MUTATION = gql`
           name
         }
       }
+      teamID
     }
   }
 `;
