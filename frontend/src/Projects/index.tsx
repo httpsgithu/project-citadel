@@ -227,7 +227,7 @@ const ProjectLink = styled(Link)``;
 
 const Projects = () => {
   const { showPopup, hidePopup } = usePopup();
-  const { loading, data } = useGetProjectsQuery();
+  const { loading, data } = useGetProjectsQuery({ fetchPolicy: 'network-only' });
   useEffect(() => {
     document.title = 'Citadel';
   }, []);

@@ -158,6 +158,40 @@ func (q *Queries) GetAllProjectsForTeam(ctx context.Context, teamID uuid.UUID) (
 	return items, nil
 }
 
+const getAllVisibleProjectsForUserID = `-- name: GetAllVisibleProjectsForUserID :many
+SELECT project.project_id, project.team_id, project.created_at, project.name, project.owner FROM project LEFT JOIN  
+ project_member ON project_member.project_id = project.project_id WHERE project_member.user_id = $1 OR project.owner = $1
+`
+
+func (q *Queries) GetAllVisibleProjectsForUserID(ctx context.Context, userID uuid.UUID) ([]Project, error) {
+	rows, err := q.db.QueryContext(ctx, getAllVisibleProjectsForUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.TeamID,
+			&i.CreatedAt,
+			&i.Name,
+			&i.Owner,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMemberProjectIDsForUserID = `-- name: GetMemberProjectIDsForUserID :many
 SELECT project_id FROM project_member WHERE user_id = $1
 `

@@ -24,3 +24,7 @@ SELECT team_id FROM team_member WHERE user_id = $1;
 
 -- name: UpdateTeamOwnerByOwnerID :many
 UPDATE team SET owner = $2 WHERE owner = $1 RETURNING team_id;
+
+-- name: GetTeamsForUserIDWhereAdmin :many
+SELECT team.* FROM team_member INNER JOIN team  
+ ON team.team_id = team_member.team_id OR team.owner = team_member.user_id WHERE role_code = 'admin' AND user_id = $1;

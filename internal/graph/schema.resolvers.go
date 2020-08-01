@@ -23,6 +23,7 @@ func (r *labelColorResolver) ID(ctx context.Context, obj *db.LabelColor) (uuid.U
 
 func (r *mutationResolver) CreateProject(ctx context.Context, input NewProject) (*db.Project, error) {
 	createdAt := time.Now().UTC()
+	log.WithFields(log.Fields{"userID": input.UserID, "name": input.Name, "teamID": input.TeamID}).Info("creating new project")
 	project, err := r.Repository.CreateProject(ctx, db.CreateProjectParams{input.UserID, input.TeamID, createdAt, input.Name})
 	return &project, err
 }
@@ -839,7 +840,11 @@ func (r *projectResolver) ID(ctx context.Context, obj *db.Project) (uuid.UUID, e
 
 func (r *projectResolver) Team(ctx context.Context, obj *db.Project) (*db.Team, error) {
 	team, err := r.Repository.GetTeamByID(ctx, obj.TeamID)
-	return &team, err
+	if err != nil {
+		log.WithFields(log.Fields{"teamID": obj.TeamID, "projectID": obj.ProjectID}).WithError(err).Error("issue while getting team for project")
+		return &team, err
+	}
+	return &team, nil
 }
 
 func (r *projectResolver) Owner(ctx context.Context, obj *db.Project) (*Member, error) {
@@ -964,6 +969,11 @@ func (r *queryResolver) FindUser(ctx context.Context, input FindUser) (*db.UserA
 }
 
 func (r *queryResolver) FindProject(ctx context.Context, input FindProject) (*db.Project, error) {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return &db.Project{}, nil
+	}
+
 	projectID, err := uuid.Parse(input.ProjectID)
 	if err != nil {
 		return &db.Project{}, err
@@ -986,10 +996,56 @@ func (r *queryResolver) FindTask(ctx context.Context, input FindTask) (*db.Task,
 }
 
 func (r *queryResolver) Projects(ctx context.Context, input *ProjectsFilter) ([]db.Project, error) {
+	userID, userOK := GetUserID(ctx)
+	orgRole, roleOK := GetOrgRole(ctx)
+	if !userOK || !roleOK {
+		log.Info("user id was not found from middleware")
+		return []db.Project{}, nil
+	}
+	log.WithFields(log.Fields{"userID": userID}).Info("fetching projects")
+
 	if input != nil {
 		return r.Repository.GetAllProjectsForTeam(ctx, *input.TeamID)
 	}
-	return r.Repository.GetAllProjects(ctx)
+
+	if orgRole == "admin" {
+		return r.Repository.GetAllProjects(ctx)
+	}
+
+	teams, err := r.Repository.GetTeamsForUserIDWhereAdmin(ctx, userID)
+	projects := make(map[string]db.Project)
+	for _, team := range teams {
+		teamProjects, err := r.Repository.GetAllProjectsForTeam(ctx, team.TeamID)
+		if err != sql.ErrNoRows && err != nil {
+			log.Info("issue getting team projects")
+			return []db.Project{}, nil
+		}
+		for _, project := range teamProjects {
+			log.WithFields(log.Fields{"projectID": project.ProjectID.String()}).Info("adding team project")
+			projects[project.ProjectID.String()] = project
+		}
+	}
+
+	visibleProjects, err := r.Repository.GetAllVisibleProjectsForUserID(ctx, userID)
+	if err != nil {
+		log.Info("user id was not found from middleware")
+		return []db.Project{}, nil
+	}
+	for _, project := range visibleProjects {
+		log.WithFields(log.Fields{"projectID": project.ProjectID.String()}).Info("found visible project")
+		if _, ok := projects[project.ProjectID.String()]; !ok {
+			log.WithFields(log.Fields{"projectID": project.ProjectID.String()}).Info("adding visible project")
+			projects[project.ProjectID.String()] = project
+		}
+	}
+	log.WithFields(log.Fields{"projectLength": len(projects)}).Info("making projects")
+	allProjects := make([]db.Project, 0, len(projects))
+	for _, project := range projects {
+		log.WithFields(log.Fields{"projectID": project.ProjectID.String()}).Info("add project to final list")
+		allProjects = append(allProjects, project)
+	}
+	log.Info(allProjects)
+	return allProjects, nil
 }
 
 func (r *queryResolver) FindTeam(ctx context.Context, input FindTeam) (*db.Team, error) {
@@ -1001,7 +1057,49 @@ func (r *queryResolver) FindTeam(ctx context.Context, input FindTeam) (*db.Team,
 }
 
 func (r *queryResolver) Teams(ctx context.Context) ([]db.Team, error) {
-	return r.Repository.GetAllTeams(ctx)
+	userID, userOK := GetUserID(ctx)
+	orgRole, roleOK := GetOrgRole(ctx)
+	if !userOK || !roleOK {
+		log.Error("userID or orgRole does not exist!")
+		return []db.Team{}, errors.New("internal error")
+	}
+	if orgRole == "admin" {
+		return r.Repository.GetAllTeams(ctx)
+	}
+
+	teams := make(map[string]db.Team)
+	adminTeams, err := r.Repository.GetTeamsForUserIDWhereAdmin(ctx, userID)
+	if err != nil {
+		return []db.Team{}, err
+	}
+
+	for _, team := range adminTeams {
+		teams[team.TeamID.String()] = team
+	}
+
+	visibleProjects, err := r.Repository.GetAllVisibleProjectsForUserID(ctx, userID)
+	if err != nil {
+		log.Info("user id was not found from middleware")
+		return []db.Team{}, err
+	}
+	for _, project := range visibleProjects {
+		log.WithFields(log.Fields{"projectID": project.ProjectID.String()}).Info("found visible project")
+		if _, ok := teams[project.ProjectID.String()]; !ok {
+			log.WithFields(log.Fields{"projectID": project.ProjectID.String()}).Info("adding visible project")
+			team, err := r.Repository.GetTeamByID(ctx, project.TeamID)
+			if err != nil {
+				log.Info("user id was not found from middleware")
+				return []db.Team{}, err
+			}
+			teams[project.TeamID.String()] = team
+		}
+	}
+	foundTeams := make([]db.Team, 0, len(teams))
+	for _, team := range teams {
+		foundTeams = append(foundTeams, team)
+	}
+	return foundTeams, nil
+
 }
 
 func (r *queryResolver) LabelColors(ctx context.Context) ([]db.LabelColor, error) {

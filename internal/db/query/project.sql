@@ -48,3 +48,7 @@ SELECT project_id FROM project_member WHERE user_id = $1;
 
 -- name: UpdateProjectOwnerByOwnerID :many
 UPDATE project SET owner = $2 WHERE owner = $1 RETURNING project_id;
+
+-- name: GetAllVisibleProjectsForUserID :many
+SELECT project.* FROM project LEFT JOIN  
+ project_member ON project_member.project_id = project.project_id WHERE project_member.user_id = $1 OR project.owner = $1;

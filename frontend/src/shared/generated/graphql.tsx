@@ -1706,6 +1706,28 @@ export type GetTeamQuery = (
   )> }
 );
 
+export type UpdateTeamMemberRoleMutationVariables = {
+  teamID: Scalars['UUID'];
+  userID: Scalars['UUID'];
+  roleCode: RoleCode;
+};
+
+
+export type UpdateTeamMemberRoleMutation = (
+  { __typename?: 'Mutation' }
+  & { updateTeamMemberRole: (
+    { __typename?: 'UpdateTeamMemberRolePayload' }
+    & { member: (
+      { __typename?: 'Member' }
+      & Pick<Member, 'id'>
+      & { role: (
+        { __typename?: 'Role' }
+        & Pick<Role, 'code' | 'name'>
+      ) }
+    ) }
+  ) }
+);
+
 export type ToggleTaskLabelMutationVariables = {
   taskID: Scalars['UUID'];
   projectLabelID: Scalars['UUID'];
@@ -3510,6 +3532,46 @@ export function useGetTeamLazyQuery(baseOptions?: ApolloReactHooks.LazyQueryHook
 export type GetTeamQueryHookResult = ReturnType<typeof useGetTeamQuery>;
 export type GetTeamLazyQueryHookResult = ReturnType<typeof useGetTeamLazyQuery>;
 export type GetTeamQueryResult = ApolloReactCommon.QueryResult<GetTeamQuery, GetTeamQueryVariables>;
+export const UpdateTeamMemberRoleDocument = gql`
+    mutation updateTeamMemberRole($teamID: UUID!, $userID: UUID!, $roleCode: RoleCode!) {
+  updateTeamMemberRole(input: {teamID: $teamID, userID: $userID, roleCode: $roleCode}) {
+    member {
+      id
+      role {
+        code
+        name
+      }
+    }
+  }
+}
+    `;
+export type UpdateTeamMemberRoleMutationFn = ApolloReactCommon.MutationFunction<UpdateTeamMemberRoleMutation, UpdateTeamMemberRoleMutationVariables>;
+
+/**
+ * __useUpdateTeamMemberRoleMutation__
+ *
+ * To run a mutation, you first call `useUpdateTeamMemberRoleMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useUpdateTeamMemberRoleMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [updateTeamMemberRoleMutation, { data, loading, error }] = useUpdateTeamMemberRoleMutation({
+ *   variables: {
+ *      teamID: // value for 'teamID'
+ *      userID: // value for 'userID'
+ *      roleCode: // value for 'roleCode'
+ *   },
+ * });
+ */
+export function useUpdateTeamMemberRoleMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<UpdateTeamMemberRoleMutation, UpdateTeamMemberRoleMutationVariables>) {
+        return ApolloReactHooks.useMutation<UpdateTeamMemberRoleMutation, UpdateTeamMemberRoleMutationVariables>(UpdateTeamMemberRoleDocument, baseOptions);
+      }
+export type UpdateTeamMemberRoleMutationHookResult = ReturnType<typeof useUpdateTeamMemberRoleMutation>;
+export type UpdateTeamMemberRoleMutationResult = ApolloReactCommon.MutationResult<UpdateTeamMemberRoleMutation>;
+export type UpdateTeamMemberRoleMutationOptions = ApolloReactCommon.BaseMutationOptions<UpdateTeamMemberRoleMutation, UpdateTeamMemberRoleMutationVariables>;
 export const ToggleTaskLabelDocument = gql`
     mutation toggleTaskLabel($taskID: UUID!, $projectLabelID: UUID!) {
   toggleTaskLabel(input: {taskID: $taskID, projectLabelID: $projectLabelID}) {

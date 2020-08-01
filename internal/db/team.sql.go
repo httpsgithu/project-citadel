@@ -191,6 +191,40 @@ func (q *Queries) GetTeamsForOrganization(ctx context.Context, organizationID uu
 	return items, nil
 }
 
+const getTeamsForUserIDWhereAdmin = `-- name: GetTeamsForUserIDWhereAdmin :many
+SELECT team.team_id, team.created_at, team.name, team.organization_id, team.owner FROM team_member INNER JOIN team  
+ ON team.team_id = team_member.team_id OR team.owner = team_member.user_id WHERE role_code = 'admin' AND user_id = $1
+`
+
+func (q *Queries) GetTeamsForUserIDWhereAdmin(ctx context.Context, userID uuid.UUID) ([]Team, error) {
+	rows, err := q.db.QueryContext(ctx, getTeamsForUserIDWhereAdmin, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Team
+	for rows.Next() {
+		var i Team
+		if err := rows.Scan(
+			&i.TeamID,
+			&i.CreatedAt,
+			&i.Name,
+			&i.OrganizationID,
+			&i.Owner,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setTeamOwner = `-- name: SetTeamOwner :one
 UPDATE team SET owner = $2 WHERE team_id = $1 RETURNING team_id, created_at, name, organization_id, owner
 `

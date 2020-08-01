@@ -10,6 +10,7 @@ import {
   RoleCode,
   useCreateTeamMemberMutation,
   useDeleteTeamMemberMutation,
+  useUpdateTeamMemberRoleMutation,
   GetTeamQuery,
   GetTeamDocument,
 } from 'shared/generated/graphql';
@@ -454,12 +455,17 @@ const Members: React.FC<MembersProps> = ({ teamID }) => {
         GetTeamDocument,
         cache =>
           produce(cache, draftCache => {
-            draftCache.findTeam.members.push({ ...response.data.createTeamMember.teamMember });
+            draftCache.findTeam.members.push({
+              ...response.data.createTeamMember.teamMember,
+              member: { __typename: 'MemberList', projects: [], teams: [] },
+              owned: { __typename: 'OwnedList', projects: [], teams: [] },
+            });
           }),
         { teamID },
       );
     },
   });
+  const [updateTeamMemberRole] = useUpdateTeamMemberRoleMutation({});
   const [deleteTeamMember] = useDeleteTeamMemberMutation({
     update: (client, response) => {
       updateApolloCache<GetTeamQuery>(
@@ -505,6 +511,7 @@ const Members: React.FC<MembersProps> = ({ teamID }) => {
                       users={data.users}
                       teamMembers={data.findTeam.members}
                       onAddTeamMember={userID => {
+                        console.log(`team: ${userID}`);
                         createTeamMember({ variables: { userID, teamID } });
                       }}
                     />,
@@ -540,7 +547,9 @@ const Members: React.FC<MembersProps> = ({ teamID }) => {
                             member.role && member.role.code !== 'owner' ? (userID: string) => {} : undefined
                           }
                           canChangeRole={member.role && member.role.code !== 'owner'}
-                          onChangeRole={roleCode => {}}
+                          onChangeRole={roleCode => {
+                            updateTeamMemberRole({ variables: { userID: member.id, teamID, roleCode } });
+                          }}
                           onRemoveFromTeam={
                             member.role && member.role.code === 'owner'
                               ? undefined
